@@ -9,51 +9,12 @@
  * See docs/spike-l1-mirror.md for the path decision and evidence.
  */
 
+import type {
+  Proposal,
+  ProposalState,
+  CycleInfo,
+} from '@/lib/types';
 import fixtureData from '@/fixtures/proposals.testnet.json';
-
-// ---------------------------------------------------------------------------
-// Domain types (mirrored from lib/types.ts — import from there in app code)
-// ---------------------------------------------------------------------------
-
-export type ProposalState =
-  | 'needs-more-yes'
-  | 'not-funded'
-  | 'queued-next-cycle';
-
-export interface ProposalVotes {
-  yes: number;
-  no: number;
-  abstain: number;
-}
-
-export interface ProposalEngagement {
-  reviews: number;
-  comments: number;
-  tippedDash: number;
-  verifiedMnos: number;
-}
-
-export interface Proposal {
-  id: string;
-  hash: string;
-  title: string;
-  ownerHandle: string;
-  amountDash: number;
-  isMonthly: boolean;
-  paymentsRemaining: number;
-  state: ProposalState;
-  votes: ProposalVotes;
-  neededYesToFund: number;
-  votingDeadline: string | null; // ISO 8601 UTC, or null for queued proposals
-  engagement: ProposalEngagement;
-}
-
-export interface CycleInfo {
-  cycle: string;         // e.g. "_04"
-  label: string;         // e.g. "Cycle _04"
-  network: string;       // e.g. "testnet" | "mainnet"
-  lastUpdated: string;   // ISO 8601 UTC — when the fixture was last seeded
-}
 
 // ---------------------------------------------------------------------------
 // Interface — identical for all mirror paths (fixture, REST, gRPC)
@@ -83,10 +44,16 @@ export interface ProposalMirror {
 // Path C implementation — fixture-backed, no network calls
 // ---------------------------------------------------------------------------
 
+const VALID_STATES: ProposalState[] = [
+  'needs-more-yes',
+  'not-funded',
+  'queued-next-cycle',
+];
+
 /**
- * Validates that a raw fixture proposal has the shape we expect.
- * Returns the proposal typed as Proposal, or throws with a clear message.
- * Keeps the rest of the app safe from corrupt fixture data.
+ * Validates that a raw fixture entry has the expected shape and returns it
+ * typed as Proposal. Throws with a clear message on corrupt fixture data so
+ * the developer sees it immediately rather than a silent empty-state.
  */
 function parseProposal(raw: unknown): Proposal {
   if (typeof raw !== 'object' || raw === null) {
@@ -95,21 +62,15 @@ function parseProposal(raw: unknown): Proposal {
 
   const p = raw as Record<string, unknown>;
 
-  const requiredStrings = ['id', 'hash', 'title', 'ownerHandle', 'state'];
-  for (const key of requiredStrings) {
+  for (const key of ['id', 'hash', 'title', 'ownerHandle', 'state']) {
     if (typeof p[key] !== 'string') {
       throw new Error(`Fixture parse error: proposal.${key} must be a string`);
     }
   }
 
-  const validStates: ProposalState[] = [
-    'needs-more-yes',
-    'not-funded',
-    'queued-next-cycle',
-  ];
-  if (!validStates.includes(p.state as ProposalState)) {
+  if (!VALID_STATES.includes(p.state as ProposalState)) {
     throw new Error(
-      `Fixture parse error: proposal.state "${p.state}" is not a valid ProposalState`,
+      `Fixture parse error: proposal.state "${String(p.state)}" is not a valid ProposalState`,
     );
   }
 
@@ -158,11 +119,10 @@ function parseProposal(raw: unknown): Proposal {
   };
 }
 
-// Parse once at module load — fail loud if the fixture is corrupt so the
-// developer knows immediately rather than seeing a silent empty state.
-const _proposals: Proposal[] = (
-  fixtureData.proposals as unknown[]
-).map(parseProposal);
+// Parse once at module load so a corrupt fixture fails fast at startup.
+const _proposals: Proposal[] = (fixtureData.proposals as unknown[]).map(
+  parseProposal,
+);
 
 const _cycle: CycleInfo = {
   cycle: fixtureData._meta.cycle,
@@ -174,13 +134,9 @@ const _cycle: CycleInfo = {
 /**
  * Fixture-backed implementation of ProposalMirror (Path C).
  *
- * getCycle() is synchronous because the data is available at module load.
- * getProposals() / getProposal() are async to keep the interface
- * consistent with future network-backed implementations.
- *
- * v1 refresh cadence: the hub page calls getProposals() on mount and on a
- * 60-second interval; here those calls are no-ops (returns the same data).
- * In a network-backed implementation they would re-fetch.
+ * getCycle() is synchronous — data is available at module load.
+ * getProposals() / getProposal() are async to match the interface contract
+ * that network-backed implementations will honour.
  */
 export const fixtureProposalMirror: ProposalMirror = {
   getCycle(): CycleInfo {
@@ -188,7 +144,6 @@ export const fixtureProposalMirror: ProposalMirror = {
   },
 
   async getProposals(): Promise<Proposal[]> {
-    // Simulate the async boundary that v2 will cross over the wire.
     return _proposals;
   },
 
@@ -197,5 +152,4 @@ export const fixtureProposalMirror: ProposalMirror = {
   },
 };
 
-// Default export for convenience — app code imports this.
 export default fixtureProposalMirror;

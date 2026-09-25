@@ -2,8 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
-
+/* Design tokens — match wireframe-v0.html :root exactly */
 :root {
   --bg: #eef1f6;
   --grid: rgba(30, 58, 95, 0.055);
@@ -46,16 +45,7 @@
   }
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
 body {
-  font-family: 'DM Sans', sans-serif;
   background-color: var(--bg);
   color: var(--text);
   background-image: linear-gradient(var(--grid) 1px, transparent 1px),
