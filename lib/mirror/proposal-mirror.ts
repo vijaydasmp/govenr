@@ -9,7 +9,7 @@
  * See docs/spike-l1-mirror.md for the path decision and evidence.
  */
 
-import fixtureData from '../../fixtures/proposals.testnet.json';
+import fixtureData from '@/fixtures/proposals.testnet.json';
 
 // ---------------------------------------------------------------------------
 // Domain types (mirrored from lib/types.ts — import from there in app code)
