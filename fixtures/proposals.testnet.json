@@ -1,0 +1,140 @@
+{
+  "_meta": {
+    "note": "DEMO SEED DATA for v1 (fixture-backed mirror). _04 tallies are real as of 2026-09-25. Other figures are illustrative placeholders until the Task 0 spike replaces this file with the live L1 mirror path. Replace before calling anything production.",
+    "cycle": "_04",
+    "cycleLabel": "Cycle _04",
+    "network": "testnet",
+    "seededAt": "2026-09-25T00:00:00Z"
+  },
+  "proposals": [
+    {
+      "id": "BTCBACKPORTSVIJAY_04",
+      "hash": "8576a3dbc52f93b8c333ed7398b592d569dbaa2d7647ea3e143f07c949034939",
+      "title": "New Dash Core — Monthly Maintenance, Cleanup & Upstream Backports",
+      "ownerHandle": "@cryptotura",
+      "amountDash": 55,
+      "isMonthly": true,
+      "paymentsRemaining": 6,
+      "category": "development",
+      "state": "needs-more-yes",
+      "votes": {
+        "yes": 274,
+        "no": 122,
+        "abstain": 0
+      },
+      "neededYesToFund": 162,
+      "votingDeadline": "2026-10-20T00:00:00Z",
+      "engagement": {
+        "reviews": 7,
+        "comments": 18,
+        "tippedDash": 4.2,
+        "verifiedMnos": 4
+      }
+    },
+    {
+      "id": "C2POOL_FINISH_03",
+      "hash": "a11ce0f73bd11f93b8c333ed7398b592d569dbaa2d7647ea3e143f07c9490311f",
+      "title": "Finish c2pool's daemon-less Dash node",
+      "ownerHandle": "@frstrtr",
+      "amountDash": 126,
+      "isMonthly": true,
+      "paymentsRemaining": 2,
+      "category": "infrastructure",
+      "state": "not-funded",
+      "votes": {
+        "yes": 210,
+        "no": 61,
+        "abstain": 2
+      },
+      "neededYesToFund": 226,
+      "votingDeadline": "2026-10-20T00:00:00Z",
+      "engagement": {
+        "reviews": 3,
+        "comments": 9,
+        "tippedDash": 1.1,
+        "verifiedMnos": 1
+      }
+    },
+    {
+      "id": "PLATFORM_APP_DIRECTORY_01",
+      "hash": "bb27d0e4cc2a04a7c902be15ad8b592d569dbaa2d7647ea3e143f07c9490342a",
+      "title": "Platform App Directory — open registry of Evo apps",
+      "ownerHandle": "@niallon11",
+      "amountDash": 40,
+      "isMonthly": false,
+      "paymentsRemaining": 1,
+      "category": "infrastructure",
+      "state": "queued-next-cycle",
+      "votes": {
+        "yes": 44,
+        "no": 6,
+        "abstain": 1
+      },
+      "neededYesToFund": 0,
+      "votingDeadline": null,
+      "engagement": {
+        "reviews": 1,
+        "comments": 4,
+        "tippedDash": 0.3,
+        "verifiedMnos": 1
+      }
+    }
+  ],
+  "content": {
+    "BTCBACKPORTSVIJAY_04": {
+      "title": "New Dash Core — Monthly Maintenance, Cleanup & Upstream Backports",
+      "body": "Independent upstream Bitcoin backporting and Core maintenance. Track bitcoin/bitcoin for safe improvements, adapt them through Dash's divergence (ChainLocks, InstantSend, quorums, governance), every PR reviewed and approved by Core maintainers before merge. A backport backlog is unpatched bugs — this funds the routine integration that keeps Dash secure and current without touching consensus.",
+      "milestones": [
+        "5-10 merged low-risk Dash PRs per month",
+        "100% CI and functional test pass rate",
+        "Monthly public delivery report with per-PR ledger"
+      ],
+      "reportRefs": [
+        "report:cycle-03 (13 PRs, 11 merged, +3356/-1402)"
+      ]
+    }
+  },
+  "reviews": {
+    "BTCBACKPORTSVIJAY_04": [
+      {
+        "id": "rev-seed-001",
+        "authorHandle": "pmbf",
+        "stance": "support",
+        "body": "Four consecutive cycles funded, delivery reports on time every month, CI discipline to match. The risk profile is about as low as this DAO gets — the only question this cycle is scope.",
+        "mnoVerified": false,
+        "tippedDash": 2.1,
+        "helpfulPct": 89
+      },
+      {
+        "id": "rev-seed-002",
+        "authorHandle": "doodhfara",
+        "stance": "concern",
+        "body": "Backport automation may reduce the manual scope in later cycles — the ask should address whether payments scale down with it.",
+        "mnoVerified": false,
+        "tippedDash": 0,
+        "helpfulPct": 64
+      }
+    ]
+  },
+  "comments": {
+    "BTCBACKPORTSVIJAY_04": [
+      {
+        "id": "cmt-seed-001",
+        "authorHandle": "pmbf",
+        "body": "If you can do this with just data contracts, then data contracts are already very powerful.",
+        "createdAt": "2026-09-23T09:41:00Z"
+      },
+      {
+        "id": "cmt-seed-002",
+        "authorHandle": "momo",
+        "body": "Will the monthly delivery reports be hosted here too? Having them attached to the proposal instead of buried in a forum thread would help a lot of us follow along.",
+        "createdAt": "2026-09-24T18:12:00Z"
+      }
+    ]
+  },
+  "session": {
+    "identityHandle": "doodhfara",
+    "displayName": "Vijay",
+    "balanceDash": 12.4
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "govenr",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:20",
+  "forwardPorts": [
+    3000
+  ],
+  "postCreateCommand": "echo 'Govenr starter ready. Open Kiro and point it at .kiro/specs/govenr-v1/tasks.md'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}
