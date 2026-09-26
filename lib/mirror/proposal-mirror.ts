@@ -1,155 +1,104 @@
 /**
  * lib/mirror/proposal-mirror.ts
  *
- * SOURCE: local (fixture)
- * Swap point: replace this implementation with a fetch-backed or
- * gRPC-backed version when Path A or B passes the spike criteria.
- * The ProposalMirror interface must not change on swap.
+ * SOURCE: live DashCentral (mainnet) via /api/mirror/proposals
+ * Fallback: fixture (served by the same route handler on fetch failure)
+ * Swap point: replace the route handler's fetch target when a better L1
+ * source is available. This module and the ProposalMirror interface are
+ * unchanged on swap.
  *
- * See docs/spike-l1-mirror.md for the path decision and evidence.
+ * IMPORTANT — client-only usage:
+ * fetchMirror() uses a relative URL (/api/mirror/proposals) which only
+ * resolves correctly in the browser. Do not call getProposals() or
+ * getProposal() during SSR; use the route handler directly from server
+ * components instead. getCycle() is always safe — it reads the in-memory
+ * cache synchronously.
+ *
+ * See docs/spike-l1-mirror.md for the full path decision.
  */
 
-import type {
-  Proposal,
-  ProposalState,
-  CycleInfo,
-} from '@/lib/types';
-import fixtureData from '@/fixtures/proposals.testnet.json';
+import type { Proposal, CycleInfo, MirrorResponse } from '@/lib/types';
 
 // ---------------------------------------------------------------------------
-// Interface — identical for all mirror paths (fixture, REST, gRPC)
+// Interface — unchanged across all mirror paths
 // ---------------------------------------------------------------------------
 
 export interface ProposalMirror {
   /**
-   * Returns current-cycle metadata.
-   * Synchronous: the fixture is a static import, available immediately.
+   * Returns current-cycle metadata including the data source.
+   * Returns null before the first successful fetch completes.
    */
-  getCycle(): CycleInfo;
+  getCycle(): CycleInfo | null;
 
   /**
-   * Returns all proposals in the current cycle, ordered as they appear
-   * in the fixture (typically: active first, queued last).
+   * Returns all proposals in the current cycle.
+   * Always resolves — the route handler falls back to fixtures on API error.
+   * Call from client components only (relative URL requires a browser base).
    */
   getProposals(): Promise<Proposal[]>;
 
   /**
-   * Returns a single proposal by its `id` field (e.g. "BTCBACKPORTSVIJAY_04"),
-   * or null if no proposal with that id exists.
+   * Returns a single proposal by id (DashCentral slug) or hash, or null.
+   * Call from client components only.
    */
   getProposal(id: string): Promise<Proposal | null>;
 }
 
 // ---------------------------------------------------------------------------
-// Path C implementation — fixture-backed, no network calls
+// In-memory cache — avoids redundant fetches within the same 60 s window.
+// The route handler handles its own ISR cache on the server side.
 // ---------------------------------------------------------------------------
 
-const VALID_STATES: ProposalState[] = [
-  'needs-more-yes',
-  'not-funded',
-  'queued-next-cycle',
-];
-
-/**
- * Validates that a raw fixture entry has the expected shape and returns it
- * typed as Proposal. Throws with a clear message on corrupt fixture data so
- * the developer sees it immediately rather than a silent empty-state.
- */
-function parseProposal(raw: unknown): Proposal {
-  if (typeof raw !== 'object' || raw === null) {
-    throw new Error('Fixture parse error: proposal entry is not an object');
-  }
-
-  const p = raw as Record<string, unknown>;
-
-  for (const key of ['id', 'hash', 'title', 'ownerHandle', 'state']) {
-    if (typeof p[key] !== 'string') {
-      throw new Error(`Fixture parse error: proposal.${key} must be a string`);
-    }
-  }
-
-  if (!VALID_STATES.includes(p.state as ProposalState)) {
-    throw new Error(
-      `Fixture parse error: proposal.state "${String(p.state)}" is not a valid ProposalState`,
-    );
-  }
-
-  if (typeof p.votes !== 'object' || p.votes === null) {
-    throw new Error('Fixture parse error: proposal.votes must be an object');
-  }
-  const v = p.votes as Record<string, unknown>;
-  if (
-    typeof v.yes !== 'number' ||
-    typeof v.no !== 'number' ||
-    typeof v.abstain !== 'number'
-  ) {
-    throw new Error('Fixture parse error: proposal.votes fields must be numbers');
-  }
-
-  if (typeof p.engagement !== 'object' || p.engagement === null) {
-    throw new Error('Fixture parse error: proposal.engagement must be an object');
-  }
-  const e = p.engagement as Record<string, unknown>;
-
-  return {
-    id: p.id as string,
-    hash: p.hash as string,
-    title: p.title as string,
-    ownerHandle: p.ownerHandle as string,
-    amountDash: typeof p.amountDash === 'number' ? p.amountDash : 0,
-    isMonthly: typeof p.isMonthly === 'boolean' ? p.isMonthly : false,
-    paymentsRemaining:
-      typeof p.paymentsRemaining === 'number' ? p.paymentsRemaining : 0,
-    state: p.state as ProposalState,
-    votes: {
-      yes: v.yes as number,
-      no: v.no as number,
-      abstain: v.abstain as number,
-    },
-    neededYesToFund:
-      typeof p.neededYesToFund === 'number' ? p.neededYesToFund : 0,
-    votingDeadline:
-      typeof p.votingDeadline === 'string' ? p.votingDeadline : null,
-    engagement: {
-      reviews: typeof e.reviews === 'number' ? e.reviews : 0,
-      comments: typeof e.comments === 'number' ? e.comments : 0,
-      tippedDash: typeof e.tippedDash === 'number' ? e.tippedDash : 0,
-      verifiedMnos: typeof e.verifiedMnos === 'number' ? e.verifiedMnos : 0,
-    },
-  };
-}
-
-// Parse once at module load so a corrupt fixture fails fast at startup.
-const _proposals: Proposal[] = (fixtureData.proposals as unknown[]).map(
-  parseProposal,
-);
-
-const _cycle: CycleInfo = {
-  cycle: fixtureData._meta.cycle,
-  label: fixtureData._meta.cycleLabel,
-  network: fixtureData._meta.network,
-  lastUpdated: fixtureData._meta.seededAt,
+type CacheEntry = {
+  data: MirrorResponse;
+  fetchedAt: number; // Date.now() ms
 };
 
-/**
- * Fixture-backed implementation of ProposalMirror (Path C).
- *
- * getCycle() is synchronous — data is available at module load.
- * getProposals() / getProposal() are async to match the interface contract
- * that network-backed implementations will honour.
- */
-export const fixtureProposalMirror: ProposalMirror = {
-  getCycle(): CycleInfo {
-    return _cycle;
+let _cache: CacheEntry | null = null;
+const CACHE_TTL_MS = 60_000;
+
+async function fetchMirror(): Promise<MirrorResponse> {
+  const now = Date.now();
+  if (_cache !== null && now - _cache.fetchedAt < CACHE_TTL_MS) {
+    return _cache.data;
+  }
+
+  // Relative URL — works in the browser (same-origin).
+  // next: { revalidate } is a Next.js server fetch extension; casting to
+  // RequestInit suppresses the type error. In the browser the key is ignored
+  // and the browser's own HTTP cache respects the Cache-Control headers the
+  // route handler sets via revalidate = 60.
+  const res = await fetch('/api/mirror/proposals', {
+    next: { revalidate: 60 },
+  } as RequestInit);
+
+  if (!res.ok) {
+    throw new Error(`Mirror fetch failed: HTTP ${res.status}`);
+  }
+
+  const data = (await res.json()) as MirrorResponse;
+  _cache = { data, fetchedAt: now };
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Implementation
+// ---------------------------------------------------------------------------
+
+export const proposalMirror: ProposalMirror = {
+  getCycle(): CycleInfo | null {
+    return _cache?.data.cycle ?? null;
   },
 
   async getProposals(): Promise<Proposal[]> {
-    return _proposals;
+    const data = await fetchMirror();
+    return data.proposals;
   },
 
   async getProposal(id: string): Promise<Proposal | null> {
-    return _proposals.find((p) => p.id === id) ?? null;
+    const data = await fetchMirror();
+    return data.proposals.find((p) => p.id === id || p.hash === id) ?? null;
   },
 };
 
-export default fixtureProposalMirror;
+export default proposalMirror;

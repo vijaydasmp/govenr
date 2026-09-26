@@ -44,11 +44,29 @@ export type Proposal = {
   engagement: ProposalEngagement;
 };
 
+/**
+ * Where the mirror data was sourced from in this response.
+ * Rendered as a small badge near the cycle strip (honesty requirement).
+ */
+export type MirrorSource = 'live DashCentral (mainnet)' | 'fixture';
+
 export type CycleInfo = {
-  cycle: string;      // e.g. "_04"
-  label: string;      // e.g. "Cycle _04"
-  network: string;    // "testnet" | "mainnet"
+  cycle: string;       // e.g. "_04"
+  label: string;       // e.g. "Cycle _04"
+  network: string;     // "testnet" | "mainnet"
   lastUpdated: string; // ISO 8601 UTC
+  source: MirrorSource;
+};
+
+/**
+ * Shape returned by GET /api/mirror/proposals.
+ * Defined here (not in the route file) so lib/ modules can import it
+ * without pulling in next/server.
+ */
+export type MirrorResponse = {
+  source: MirrorSource;
+  cycle: CycleInfo;
+  proposals: Proposal[];
 };
 
 // ---------------------------------------------------------------------------
