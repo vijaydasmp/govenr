@@ -57,7 +57,6 @@ export async function getSigningContext(
   mod: Awaited<ReturnType<typeof loadSdkModule>>;
   identityKey: unknown;
   signer: unknown;
-  identityRevision: bigint;
 }> {
   assertClientSide('getSigningContext');
   const mod = await loadSdkModule();
@@ -76,10 +75,9 @@ export async function getSigningContext(
       'The logged-in key is not registered to this identity. Sign in with a key that belongs to it.',
     );
   }
-  const identityRevision = BigInt(identity?.revision ?? 0n);
   const signer = new mod.IdentitySigner();
   signer.addKeyFromWif(wif);
-  return { mod, identityKey, signer, identityRevision };
+  return { mod, identityKey, signer };
 }
 
 /** Publishes the Govenr data contract to Platform testnet. One-time. */
@@ -90,16 +88,20 @@ export async function publishGovenrContract(
   onLog?: (msg: string) => void,
 ): Promise<string> {
   assertClientSide('publishGovenrContract');
-  const { mod, identityKey, signer, identityRevision } = await getSigningContext(
+  const { mod, identityKey, signer } = await getSigningContext(
     sdk,
     identityId,
     authKeyWif,
   );
 
+  // Official evo-sdk v4 pattern (platform-tutorials contract-register-binary):
+  // the contract nonce is the identity's NEXT nonce.
+  const identityNonce = await sdk.identities.nonce(identityId);
+
   onLog?.('Building the Govenr data contract…');
   const dataContract = new mod.DataContract({
     ownerId: identityId,
-    identityNonce: identityRevision,
+    identityNonce: (identityNonce ?? 0n) + 1n,
     schemas: buildGovenrSchemas(),
     fullValidation: true,
   });

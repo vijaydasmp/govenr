@@ -61,6 +61,8 @@ export type DashSdk = {
     ): Promise<{ id: { toString(): string } } | null>;
     /** Fetches an identity by its id (base58 string). */
     fetch(identityId: string): Promise<DashIdentity | null>;
+    /** Current identity nonce — used (incremented) for contract creation. */
+    nonce(identityId: string): Promise<bigint | undefined>;
   };
   dpns: {
     usernames(opts: { identityId: string }): Promise<string[]>;
