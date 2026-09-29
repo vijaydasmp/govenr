@@ -12,6 +12,8 @@ import VoteBar from '@/components/vote-bar';
 import StateBadge from '@/components/state-badge';
 import { dashWithSymbol } from '@/lib/format/dash';
 import { timeUntil } from '@/lib/format/dates';
+import Link from 'next/link';
+
 
 export const revalidate = 60;
 
