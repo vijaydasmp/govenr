@@ -7,7 +7,6 @@
     "proposalContent": {
       "type": "object",
       "description": "The human-readable content of an on-chain proposal, hosted on Platform so it can never be lost with a server. proposalHash links it to the immutable L1 governance object.",
-      "mutable": true,
       "indices": [
         {
           "name": "ownerProposal",
@@ -78,7 +77,6 @@
     "claim": {
       "type": "object",
       "description": "Sign-to-own record: proves the claiming identity (document owner) controls the private key of the proposal's on-chain payment address. Authorizes the claimant to author proposalContent for this proposalHash. Immutable evidence: the challenge, the signature, and the verified address (payout or collateral) are stored so anyone can independently re-verify against chain data.",
-      "mutable": false,
       "indices": [
         {
           "name": "byProposal",
@@ -142,7 +140,6 @@
     "comment": {
       "type": "object",
       "description": "A discussion comment on a proposal. One thread per proposal; parentId nests replies.",
-      "mutable": false,
       "indices": [
         {
           "name": "byProposal",
@@ -187,7 +184,6 @@
     "proposalReview": {
       "type": "object",
       "description": "A reviewer's public evaluation of a proposal: stance plus reasoning. Exactly one review per identity per proposal (unique index); edits replace via document update.",
-      "mutable": true,
       "indices": [
         {
           "name": "ownerProposal",
@@ -250,7 +246,6 @@
     "tipReceipt": {
       "type": "object",
       "description": "Public receipt for a DASH tip sent to a review or comment. The payment itself moves on L1 (InstantSend); this document is the visible, queryable record — tips as public signal, not private transfers. $ownerId is the tipper.",
-      "mutable": false,
       "indices": [
         {
           "name": "ownerTx",
