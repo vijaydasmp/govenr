@@ -30,6 +30,9 @@ import {
   loadEncryptedMnemonic,
   saveIdentityId,
   loadIdentityId,
+  saveKeySessionIdentity,
+  rememberTabKey,
+  clearKeySessionIdentity,
 } from '@/lib/platform/wallet-store';
 import {
   generateMnemonic,
@@ -39,6 +42,7 @@ import {
   resolveIdentityFromMnemonic,
   resolveDpnsName,
   shortHandle,
+  loginWithKey,
 } from '@/lib/platform/identity';
 
 // ---------------------------------------------------------------------------
@@ -183,6 +187,7 @@ function UnlockPanel({ onDone }: { onDone: () => void }) {
 
       const dpnsName = await resolveDpnsName(sdk, identityId);
       const handle = shortHandle(identityId, dpnsName);
+      clearKeySessionIdentity(); // mnemonic session supersedes any key session
       onLoginComplete(identityId, handle);
       onDone();
     } catch (err) {
@@ -356,6 +361,7 @@ function NewWalletSetupPanel({
           try {
             const identityId = await registerIdentity(sdk, mnemonic, appendLog);
             saveIdentityId(identityId);
+            clearKeySessionIdentity(); // fresh identity supersedes any key session
 
             const dpnsName = await resolveDpnsName(sdk, identityId);
             const handle = shortHandle(identityId, dpnsName);
@@ -545,6 +551,7 @@ function ImportWalletPanel({ onDone }: { onDone: () => void }) {
 
       const dpnsName = await resolveDpnsName(sdk, identityId);
       const handle = shortHandle(identityId, dpnsName);
+      clearKeySessionIdentity(); // mnemonic session supersedes any key session
       onLoginComplete(identityId, handle);
       onDone();
     } catch (err) {
@@ -604,6 +611,160 @@ function ImportWalletPanel({ onDone }: { onDone: () => void }) {
       >
         {busy ? 'Connecting…' : 'Restore &amp; login'}
       </PrimaryButton>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Panel: Key-based sign-in (yappr-style default)
+// ---------------------------------------------------------------------------
+
+function KeyLoginPanel({
+  onCreate,
+  onRestore,
+  onDone,
+}: {
+  onCreate: () => void;
+  onRestore: () => void;
+  onDone: () => void;
+}) {
+  const { onLoginComplete, onStatusUpdate, setSdk, sdk: existingSdk, setAuthKeyWif } =
+    useSession();
+  const [usernameOrId, setUsernameOrId] = useState('');
+  const [privateKey, setPrivateKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const signIn = useCallback(async () => {
+    setError(null);
+    const idInput = usernameOrId.trim();
+    const wif = privateKey.trim();
+    if (!idInput || !wif) {
+      setError('Enter your username or identity ID, and your private key.');
+      return;
+    }
+    setBusy(true);
+    onStatusUpdate('connecting');
+    try {
+      const sdk = existingSdk ?? (await createPlatformClient());
+      if (!existingSdk) setSdk(sdk);
+
+      const result = await loginWithKey(sdk, idInput, wif);
+
+      // Remember the key for this tab only; never written to disk.
+      saveKeySessionIdentity(result.identityId);
+      rememberTabKey(wif);
+      setAuthKeyWif(wif);
+
+      onLoginComplete(
+        result.identityId,
+        shortHandle(result.identityId, result.dpnsName),
+      );
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign-in failed.');
+      onStatusUpdate('idle');
+    } finally {
+      setBusy(false);
+      setPrivateKey('');
+    }
+  }, [
+    usernameOrId,
+    privateKey,
+    existingSdk,
+    onLoginComplete,
+    onStatusUpdate,
+    setSdk,
+    setAuthKeyWif,
+    onDone,
+  ]);
+
+  return (
+    <div className="space-y-4">
+      <SectionLabel>Dash Platform testnet identity</SectionLabel>
+      <h2 className="font-serif text-2xl" style={{ color: 'var(--text)' }}>
+        Sign in
+      </h2>
+      <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
+        Govenr uses your Dash Platform testnet identity for comments, reviews,
+        and tips. Your keys stay in your browser — nothing is sent to any
+        server.
+      </p>
+      <MonoInput
+        label="Dash username or identity ID"
+        value={usernameOrId}
+        onChange={setUsernameOrId}
+        placeholder="e.g., alice.dash or 5DbLw…"
+      />
+      <div className="space-y-1">
+        <label
+          className="font-mono text-xs"
+          style={{ color: 'var(--text-dim)' }}
+        >
+          Private key
+        </label>
+        <div className="flex gap-2">
+          <input
+            type={showKey ? 'text' : 'password'}
+            value={privateKey}
+            onChange={(e) => setPrivateKey(e.target.value)}
+            placeholder="Your identity key (WIF)"
+            className="w-full rounded border px-3 py-2 font-mono text-xs focus:outline-none focus-visible:ring-2"
+            style={{
+              backgroundColor: 'var(--surface)',
+              borderColor: 'var(--border-strong)',
+              color: 'var(--text)',
+            }}
+            autoComplete="off"
+            spellCheck={false}
+            aria-label="Private key"
+          />
+          <button
+            type="button"
+            onClick={() => setShowKey(!showKey)}
+            className="font-mono text-xs rounded border px-2 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+            style={{
+              borderColor: 'var(--border)',
+              color: 'var(--text-dim)',
+              backgroundColor: 'var(--surface-dim)',
+            }}
+            aria-label={showKey ? 'Hide private key' : 'Show private key'}
+          >
+            {showKey ? 'hide' : 'show'}
+          </button>
+        </div>
+      </div>
+      {error && <StatusLine msg={error} isError />}
+      <PrimaryButton onClick={signIn} disabled={busy}>
+        {busy ? 'Signing in…' : 'Sign in'}
+      </PrimaryButton>
+      <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
+        Your keys never leave this device. All signing happens locally. The
+        key is remembered for this tab only.
+      </p>
+      <div className="flex flex-col gap-3 pt-2">
+        <button
+          type="button"
+          onClick={onCreate}
+          className="font-mono text-xs rounded px-4 py-2 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+          style={{
+            borderColor: 'var(--gold)',
+            color: 'var(--gold)',
+            backgroundColor: 'var(--gold-dim)',
+          }}
+        >
+          Create new testnet identity
+        </button>
+        <button
+          type="button"
+          onClick={onRestore}
+          className="font-mono text-xs text-left focus-visible:outline-none focus-visible:ring-1"
+          style={{ color: 'var(--text-dim)' }}
+        >
+          Restore with recovery phrase →
+        </button>
+      </div>
     </div>
   );
 }
@@ -716,33 +877,17 @@ export default function LoginPanel() {
     );
   }
 
-  // Default: choose flow
+  // Default: key-based sign-in (yappr-style) with create / restore options
   return (
     <div
-      className="rounded-lg border p-6 max-w-lg mx-auto space-y-5"
+      className="rounded-lg border p-6 max-w-lg mx-auto"
       style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
     >
-      <SectionLabel>Dash Platform testnet identity</SectionLabel>
-      <h2 className="font-serif text-2xl" style={{ color: 'var(--text)' }}>
-        Sign in
-      </h2>
-      <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
-        Govenr uses your Dash Platform testnet identity for comments, reviews,
-        and tips. Your keys stay in your browser — nothing is sent to any server.
-      </p>
-      <div className="flex flex-col gap-3">
-        <PrimaryButton onClick={startNew}>
-          Create new testnet identity
-        </PrimaryButton>
-        <button
-          type="button"
-          onClick={() => setFlow('import')}
-          className="font-mono text-xs text-left focus-visible:outline-none focus-visible:ring-1"
-          style={{ color: 'var(--text-dim)' }}
-        >
-          Restore existing identity →
-        </button>
-      </div>
+      <KeyLoginPanel
+        onCreate={startNew}
+        onRestore={() => setFlow('import')}
+        onDone={finishFlow}
+      />
     </div>
   );
 }

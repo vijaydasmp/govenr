@@ -57,12 +57,71 @@ export function loadIdentityId(): string | null {
 }
 
 // ---------------------------------------------------------------------------
+// Key-based session (yappr-style sign-in)
+// ---------------------------------------------------------------------------
+
+const KEY_KEYSESSION = 'govenr:platform:v1:keysession';
+const TAB_WIF = 'govenr:platform:v1:tabkey';
+
+/** Marks a key-based session and remembers which identity it belongs to. */
+export function saveKeySessionIdentity(identityId: string): void {
+  assertClientSide('saveKeySessionIdentity');
+  localStorage.setItem(KEY_KEYSESSION, identityId);
+}
+
+/** Returns the remembered identity id for a key-based session, or null. */
+export function loadKeySessionIdentity(): string | null {
+  assertClientSide('loadKeySessionIdentity');
+  return localStorage.getItem(KEY_KEYSESSION);
+}
+
+/** Clears the key-based session marker and the tab-scoped key. */
+export function clearKeySessionIdentity(): void {
+  assertClientSide('clearKeySessionIdentity');
+  localStorage.removeItem(KEY_KEYSESSION);
+  try {
+    sessionStorage.removeItem(TAB_WIF);
+  } catch {
+    /* storage unavailable — nothing to clear */
+  }
+}
+
+/**
+ * Holds the sign-in key for this browser tab only. sessionStorage clears
+ * when the tab closes, so the key is never written to disk.
+ */
+export function rememberTabKey(wif: string): void {
+  assertClientSide('rememberTabKey');
+  try {
+    sessionStorage.setItem(TAB_WIF, wif);
+  } catch {
+    /* storage unavailable — session stays in memory only */
+  }
+}
+
+/** Returns the tab-scoped sign-in key, or null. */
+export function loadTabKey(): string | null {
+  assertClientSide('loadTabKey');
+  try {
+    return sessionStorage.getItem(TAB_WIF);
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Clear
 // ---------------------------------------------------------------------------
 
-/** Clears all platform session data from localStorage. */
+/** Clears all platform session data from storage. */
 export function clearWalletStore(): void {
   assertClientSide('clearWalletStore');
   localStorage.removeItem(KEY_WALLET);
   localStorage.removeItem(KEY_IDENTITY);
+  localStorage.removeItem(KEY_KEYSESSION);
+  try {
+    sessionStorage.removeItem(TAB_WIF);
+  } catch {
+    /* storage unavailable */
+  }
 }

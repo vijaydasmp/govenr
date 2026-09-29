@@ -195,6 +195,86 @@ export async function resolveDpnsName(
 }
 
 // ---------------------------------------------------------------------------
+// Key-based login (yappr-style)
+// ---------------------------------------------------------------------------
+
+/**
+ * Sign in with a Dash username (DPNS name) or identity ID plus one private
+ * key (WIF) registered to that identity — the same pattern yappr uses.
+ *
+ * Only the single key is involved; the recovery phrase is never needed.
+ * The key is verified against the identity's registered public keys
+ * on-chain, so any key registered to the identity works (High, Critical,
+ * or Master).
+ */
+export async function loginWithKey(
+  sdk: DashSdk,
+  usernameOrIdentityId: string,
+  privateKeyWif: string,
+): Promise<{ identityId: string; dpnsName: string | null }> {
+  assertClientSide('loginWithKey');
+  const mod = await loadSdkModule();
+
+  let privateKey;
+  try {
+    privateKey = mod.PrivateKey.fromWIF(privateKeyWif.trim());
+  } catch {
+    throw new Error('That does not look like a valid private key (WIF format).');
+  }
+  const pubKeyHash = privateKey.getPublicKeyHash().toLowerCase();
+
+  // Resolve what the user typed into an identity id.
+  const input = usernameOrIdentityId.trim();
+  let identityId: string;
+  let typedName: string | null = null;
+
+  if (input.includes('.')) {
+    // Full DPNS name, e.g. "alice.dash"
+    typedName = input.toLowerCase();
+    const resolved = await sdk.dpns.resolveName(typedName);
+    if (!resolved) {
+      throw new Error(
+        `No identity found on testnet for the name "${typedName}".`,
+      );
+    }
+    identityId = resolved;
+  } else if (input.length >= 30) {
+    // Identity IDs are long base58 strings.
+    identityId = input;
+  } else {
+    // Bare label like "alice" — try it as a .dash name.
+    const name = `${input.toLowerCase()}.dash`;
+    const resolved = await sdk.dpns.resolveName(name);
+    if (!resolved) {
+      throw new Error(
+        'Could not resolve that. Use your full username (e.g., alice.dash) or your identity ID.',
+      );
+    }
+    typedName = name;
+    identityId = resolved;
+  }
+
+  const identity = await sdk.identities.fetch(identityId);
+  if (!identity) {
+    throw new Error(
+      'Identity not found on testnet. Check the username or ID — Govenr runs on testnet only for now.',
+    );
+  }
+
+  const registered = (identity.publicKeys ?? []).map((k) =>
+    k.getPublicKeyHash().toLowerCase(),
+  );
+  if (!registered.includes(pubKeyHash)) {
+    throw new Error(
+      'That private key does not match any key registered to this identity.',
+    );
+  }
+
+  const dpnsName = typedName ?? (await resolveDpnsName(sdk, identityId));
+  return { identityId: identity.id.toString(), dpnsName };
+}
+
+// ---------------------------------------------------------------------------
 // Display handle helper
 // ---------------------------------------------------------------------------
 

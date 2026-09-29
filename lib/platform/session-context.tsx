@@ -26,7 +26,14 @@ import React, {
 } from 'react';
 import type { PlatformSession, DashSdk } from '@/lib/platform/types';
 import { EMPTY_SESSION } from '@/lib/platform/types';
-import { hasStoredWallet, clearWalletStore } from '@/lib/platform/wallet-store';
+import {
+  hasStoredWallet,
+  clearWalletStore,
+  loadKeySessionIdentity,
+  loadTabKey,
+} from '@/lib/platform/wallet-store';
+import { createPlatformClient } from '@/lib/platform/client';
+import { resolveDpnsName, shortHandle } from '@/lib/platform/identity';
 
 // ---------------------------------------------------------------------------
 // Context shape
@@ -56,6 +63,13 @@ export type SessionContextValue = {
   /** Shared SDK instance once connected, or null. */
   sdk: DashSdk | null;
   setSdk(sdk: DashSdk): void;
+
+  /**
+   * The private key (WIF) of a key-based session — in memory only, never
+   * persisted to disk. Null for mnemonic-based sessions and logged-out users.
+   */
+  authKeyWif: string | null;
+  setAuthKeyWif(wif: string | null): void;
 };
 
 // ---------------------------------------------------------------------------
@@ -79,13 +93,41 @@ export function useSession(): SessionContextValue {
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<PlatformSession>(EMPTY_SESSION);
   const [sdk, setSdkState] = useState<DashSdk | null>(null);
+  const [authKeyWif, setAuthKeyWif] = useState<string | null>(null);
   const initialized = useRef(false);
 
-  // On mount: read localStorage to decide initial status.
+  // On mount, restore the previous session:
+  //   1. Key-based session with the tab key still alive → silent re-auth
+  //   2. Encrypted mnemonic wallet present       → 'locked' (passphrase)
+  //   3. Otherwise                                 → 'idle' (show login)
   // We use a ref-guard so this runs exactly once even in strict-mode.
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
+
+    const keyIdentityId = loadKeySessionIdentity();
+    const tabKey = loadTabKey();
+    if (keyIdentityId && tabKey) {
+      setSession((s) => ({ ...s, status: 'connecting' }));
+      void (async () => {
+        try {
+          const client = await createPlatformClient();
+          setSdkState(client);
+          const dpnsName = await resolveDpnsName(client, keyIdentityId);
+          setAuthKeyWif(tabKey);
+          setSession({
+            status: 'ready',
+            identityId: keyIdentityId,
+            displayHandle: shortHandle(keyIdentityId, dpnsName),
+            fundingAddress: null,
+            errorMessage: null,
+          });
+        } catch {
+          setSession(EMPTY_SESSION);
+        }
+      })();
+      return;
+    }
 
     if (hasStoredWallet()) {
       setSession((s) => ({ ...s, status: 'locked' }));
@@ -120,15 +162,29 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     clearWalletStore();
     setSession(EMPTY_SESSION);
     setSdkState(null);
+    setAuthKeyWif(null);
   }, []);
 
   const setSdk = useCallback((s: DashSdk) => {
     setSdkState(s);
   }, []);
 
+  const setAuthKeyWifCallback = useCallback((wif: string | null) => {
+    setAuthKeyWif(wif);
+  }, []);
+
   return (
     <SessionContext.Provider
-      value={{ session, onLoginComplete, onStatusUpdate, logout, sdk, setSdk }}
+      value={{
+        session,
+        onLoginComplete,
+        onStatusUpdate,
+        logout,
+        sdk,
+        setSdk,
+        authKeyWif,
+        setAuthKeyWif: setAuthKeyWifCallback,
+      }}
     >
       {children}
     </SessionContext.Provider>

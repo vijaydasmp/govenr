@@ -12,6 +12,13 @@
 // is never imported transitively from server code.
 // ---------------------------------------------------------------------------
 
+/** Minimal shape of an on-chain identity as used by Govenr. */
+export type DashIdentity = {
+  id: { toString(): string };
+  publicKeys?: Array<{ getPublicKeyHash(): string }>;
+  balance?: number | bigint;
+};
+
 /** Opaque handle to a connected EvoSDK instance. */
 export type DashSdk = {
   connect(): Promise<void>;
@@ -20,9 +27,13 @@ export type DashSdk = {
     byPublicKeyHash(
       publicKeyHash: string,
     ): Promise<{ id: { toString(): string } } | null>;
+    /** Fetches an identity by its id (base58 string). */
+    fetch(identityId: string): Promise<DashIdentity | null>;
   };
   dpns: {
     usernames(opts: { identityId: string }): Promise<string[]>;
+    /** Resolves a DPNS name (e.g. "alice.dash") to an identity id. */
+    resolveName(name: string): Promise<string | undefined>;
   };
   addresses: {
     get(bech32m: string): Promise<{ balance?: bigint } | undefined>;
