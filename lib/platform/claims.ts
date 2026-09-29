@@ -17,14 +17,18 @@ import { assertClientSide } from '@/lib/platform/sdk-module';
 import { getSigningContext } from '@/lib/platform/contract';
 import type { DashSdk } from '@/lib/platform/types';
 
-/** Hex string -> raw bytes (for the byteArray schema fields). */
-function hexToBytes(hex: string): Uint8Array {
+/** Hex string -> base64. ByteArray document properties cross the evo-sdk
+ * wasm boundary as base64 strings (see the official dashproof-lab example:
+ * `entryHash: bytesToBase64(...)` and the same form in query where-values) —
+ * passing a Uint8Array directly serializes wrongly and the drive rejects the
+ * document with "structure error: not an array of bytes". */
+function hexToBase64(hex: string): string {
   const clean = hex.trim().toLowerCase();
-  const out = new Uint8Array(clean.length / 2);
-  for (let i = 0; i < out.length; i += 1) {
-    out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+  let binary = '';
+  for (let i = 0; i < clean.length; i += 2) {
+    binary += String.fromCharCode(parseInt(clean.slice(i, i + 2), 16));
   }
-  return out;
+  return btoa(binary);
 }
 
 /** A fresh challenge: govenr-claim:<proposalHash>:<identityId>:<nonce>. */
@@ -64,8 +68,9 @@ export async function submitClaim(
   );
   const document = new mod.Document({
     properties: {
-      // Schema v1: indexed hash fields are byte arrays (maxItems 32)
-      proposalHash: hexToBytes(opts.proposalHash),
+      // Schema v1: indexed hash fields are byte arrays — base64 at the
+      // wasm boundary (see hexToBase64).
+      proposalHash: hexToBase64(opts.proposalHash),
       verifiedAddress: opts.verifiedAddress,
       challenge: opts.challenge,
       signature: opts.signature,
@@ -97,7 +102,7 @@ export async function fetchClaimForProposal(
     const results = await sdk.documents.query({
       dataContractId: contractId,
       documentTypeName: 'claim',
-      where: [['proposalHash', '==', hexToBytes(proposalHash)]],
+      where: [['proposalHash', '==', hexToBase64(proposalHash)]],
       limit: 1,
     });
     for (const doc of results.values()) {
