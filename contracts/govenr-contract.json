@@ -28,7 +28,7 @@
               "proposalHash": "asc"
             },
             {
-              "$createdAt": "desc"
+              "$createdAt": "asc"
             }
           ]
         }
@@ -70,7 +70,6 @@
         }
       },
       "required": [
-        "$createdAt",
         "proposalHash",
         "title"
       ],
@@ -97,7 +96,7 @@
               "$ownerId": "asc"
             },
             {
-              "$createdAt": "desc"
+              "$createdAt": "asc"
             }
           ]
         }
@@ -133,7 +132,6 @@
         }
       },
       "required": [
-        "$createdAt",
         "proposalHash",
         "verifiedAddress",
         "challenge",
@@ -181,7 +179,6 @@
         }
       },
       "required": [
-        "$createdAt",
         "proposalHash",
         "body"
       ],
@@ -211,7 +208,7 @@
               "proposalHash": "asc"
             },
             {
-              "$createdAt": "desc"
+              "$createdAt": "asc"
             }
           ]
         }
@@ -228,7 +225,8 @@
           "type": "string",
           "pattern": "^(support|concern|neutral)$",
           "description": "The reviewer's public stance",
-          "position": 1
+          "position": 1,
+          "maxLength": 16
         },
         "body": {
           "type": "string",
@@ -244,7 +242,6 @@
         }
       },
       "required": [
-        "$createdAt",
         "proposalHash",
         "stance"
       ],
@@ -274,7 +271,7 @@
               "docRef": "asc"
             },
             {
-              "$createdAt": "desc"
+              "$createdAt": "asc"
             }
           ]
         }
@@ -309,7 +306,6 @@
         }
       },
       "required": [
-        "$createdAt",
         "docRef",
         "toId",
         "amountDash",
