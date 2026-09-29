@@ -18,7 +18,7 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { ReactNode } from 'react';
+import { useState, type KeyboardEvent, type ReactNode } from 'react';
 
 type AnchorProps = { href?: string; children?: ReactNode };
 
@@ -79,6 +79,129 @@ function videoEmbed(href: string): VideoEmbed {
 
 const mono = 'font-mono text-xs';
 
+// ---------------------------------------------------------------------------
+// Image carousel — 2+ consecutive images in one paragraph become a gallery
+// (the v2 wireframe's "event photos" block). Captions come from alt text.
+// ---------------------------------------------------------------------------
+
+type CarouselImage = { src: string; alt?: string };
+
+type HastNode = {
+  type?: string;
+  tagName?: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
+};
+
+function ImageCarousel({ images }: { images: CarouselImage[] }) {
+  const [index, setIndex] = useState(0);
+  const current = images[index] ?? images[0];
+  if (!current) return null;
+
+  const go = (dir: number) =>
+    setIndex((i) => (i + dir + images.length) % images.length);
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'ArrowLeft') go(-1);
+    if (e.key === 'ArrowRight') go(1);
+  };
+
+  return (
+    <figure className="my-5">
+      <div
+        role="region"
+        aria-roledescription="carousel"
+        aria-label="Proposal images"
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        className="relative rounded-lg overflow-hidden border focus-visible:outline-none focus-visible:ring-2"
+        style={{ borderColor: 'var(--border)', backgroundColor: '#16304f' }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={current.src}
+          alt={current.alt ?? ''}
+          className="w-full max-h-[480px] object-contain select-none"
+        />
+        {images.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={() => go(-1)}
+              aria-label="Previous image"
+              className="absolute top-1/2 left-2 -translate-y-1/2 rounded-full w-9 h-9 flex items-center justify-center text-lg"
+              style={{
+                backgroundColor: 'rgba(22, 48, 79, 0.85)',
+                color: '#ffffff',
+                border: '1px solid rgba(255,255,255,0.25)',
+              }}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={() => go(1)}
+              aria-label="Next image"
+              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full w-9 h-9 flex items-center justify-center text-lg"
+              style={{
+                backgroundColor: 'rgba(22, 48, 79, 0.85)',
+                color: '#ffffff',
+                border: '1px solid rgba(255,255,255,0.25)',
+              }}
+            >
+              ›
+            </button>
+            <span
+              className={`absolute bottom-2 right-2 rounded px-2 py-0.5 ${mono}`}
+              style={{ backgroundColor: 'rgba(22, 48, 79, 0.85)', color: '#ffffff' }}
+            >
+              {index + 1} / {images.length}
+            </span>
+          </>
+        )}
+      </div>
+      {current.alt && (
+        <figcaption
+          className={`pt-1.5 text-center ${mono}`}
+          style={{ color: 'var(--text-dim)' }}
+        >
+          {current.alt}
+        </figcaption>
+      )}
+      {images.length > 1 && (
+        <div className="flex flex-wrap justify-center gap-2 pt-2">
+          {images.map((img, i) => (
+            <button
+              key={`${img.src}-${i}`}
+              type="button"
+              onClick={() => setIndex(i)}
+              aria-label={`Show image ${i + 1}`}
+              aria-current={i === index}
+              className="rounded overflow-hidden focus-visible:outline-none focus-visible:ring-2"
+              style={{
+                border:
+                  i === index
+                    ? '2px solid var(--gold)'
+                    : '1px solid var(--border)',
+                padding: 0,
+                lineHeight: 0,
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={img.src}
+                alt=""
+                className="h-10 w-14 object-cover"
+                loading="lazy"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+    </figure>
+  );
+}
+
 export default function MarkdownView({ body }: { body: string }) {
   return (
     <div className="markdown-view text-sm leading-relaxed" style={{ color: 'var(--text)' }}>
@@ -109,7 +232,29 @@ export default function MarkdownView({ body }: { body: string }) {
               {children}
             </h4>
           ),
-          p: ({ children }) => <p className="my-3 leading-relaxed">{children}</p>,
+          p: ({ node, children }) => {
+            // A paragraph that is nothing but images is a gallery.
+            const elements = (node?.children ?? []).filter(
+              (c) => (c as HastNode).type === 'element',
+            ) as HastNode[];
+            if (
+              elements.length >= 2 &&
+              elements.every((c) => c.tagName === 'img')
+            ) {
+              const images: CarouselImage[] = elements.map((c) => ({
+                src: String(c.properties?.src ?? ''),
+                alt:
+                  typeof c.properties?.alt === 'string'
+                    ? c.properties.alt
+                    : undefined,
+              }));
+              const usable = images.filter((img) => img.src);
+              if (usable.length >= 2) {
+                return <ImageCarousel images={usable} />;
+              }
+            }
+            return <p className="my-3 leading-relaxed">{children}</p>;
+          },
           a: ({ href, children }: AnchorProps) => {
             if (!href) return <>{children}</>;
             const video = videoEmbed(href);

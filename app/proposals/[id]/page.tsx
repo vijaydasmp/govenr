@@ -15,6 +15,7 @@ import { timeUntil } from '@/lib/format/dates';
 import Link from 'next/link';
 import ClaimPanel from '@/components/claim-panel';
 import ProposalContentPanel from '@/components/proposal-content-panel';
+import ProposalDisplayTitle from '@/components/proposal-display-title';
 
 
 export const revalidate = 60;
@@ -50,12 +51,12 @@ export default async function ProposalDetailPage({ params }: Props) {
 
       {/* Header */}
       <div className="space-y-3">
-        <h1
-          className="font-serif text-3xl leading-snug"
-          style={{ color: 'var(--text)' }}
-        >
-          {proposal.title}
-        </h1>
+        {/* The claimant's own title when one exists; the L1 object
+            name otherwise (kept visible as a small mono line). */}
+        <ProposalDisplayTitle
+          l1Title={proposal.title}
+          proposalHash={proposal.hash}
+        />
 
         {/* Meta row */}
         <div

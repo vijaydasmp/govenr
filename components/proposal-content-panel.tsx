@@ -17,6 +17,8 @@ import { useSession } from '@/lib/platform/session-context';
 import { createPlatformClient } from '@/lib/platform/client';
 import {
   fetchProposalContent,
+  fetchProposalContentCached,
+  invalidateProposalContentCache,
   saveProposalContent,
   type ProposalContent,
 } from '@/lib/platform/content';
@@ -63,6 +65,13 @@ const EDITOR_TOOLS: Array<{
   { label: 'Link', title: 'Web link', before: '[', after: '](https://)', placeholder: 'link text' },
   { label: 'Image', title: 'Image by URL', before: '![', after: '](https://)', placeholder: 'alt text' },
   { label: 'Video', title: 'YouTube or Vimeo link — embeds on the public page', before: '[', after: '](https://)', placeholder: 'video title' },
+  {
+    label: 'Gallery',
+    title: 'Image carousel — three image lines to start (2+ consecutive images become one)',
+    before: '\n![caption](https://)\n![caption](https://)\n![caption](https://)\n',
+    after: '',
+    placeholder: '',
+  },
 ];
 
 export default function ProposalContentPanel({
@@ -105,7 +114,7 @@ export default function ProposalContentPanel({
       try {
         const client = await sdkOrConnect();
         const [fetched, claim] = await Promise.all([
-          fetchProposalContent(client, contractId, proposalHash),
+          fetchProposalContentCached(client, contractId, proposalHash),
           fetchClaimForProposal(client, contractId, proposalHash),
         ]);
         if (cancelled) return;
@@ -190,6 +199,7 @@ export default function ProposalContentPanel({
           ? { documentId: content.documentId, revision: content.revision }
           : null,
       });
+      invalidateProposalContentCache(contractId, proposalHash);
       const fresh = await fetchProposalContent(client, contractId, proposalHash);
       setContent(fresh);
       setEditing(false);
@@ -306,7 +316,7 @@ export default function ProposalContentPanel({
                 aria-label="Description"
               />
               <p className="font-mono text-[10px]" style={{ color: 'var(--text-dim)' }}>
-                Images: ![…](url) · YouTube/Vimeo links embed automatically · the text stays a Platform document
+                Images: ![…](url) · 2+ consecutive image lines become a carousel · YouTube/Vimeo links embed automatically · the text stays a Platform document
               </p>
             </>
           ) : (

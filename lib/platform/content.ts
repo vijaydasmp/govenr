@@ -74,6 +74,40 @@ export async function fetchProposalContent(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Read cache — the page title and the content panel share one query per
+// proposal per minute instead of firing two.
+// ---------------------------------------------------------------------------
+
+const contentCache = new Map<
+  string,
+  { at: number; value: ProposalContent | null }
+>();
+const CACHE_TTL_MS = 60_000;
+
+/** Cached read (60 s TTL) — used by every reader on a page. */
+export async function fetchProposalContentCached(
+  sdk: DashSdk,
+  contractId: string,
+  proposalHash: string,
+): Promise<ProposalContent | null> {
+  assertClientSide('fetchProposalContentCached');
+  const key = `${contractId}:${proposalHash}`;
+  const hit = contentCache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value;
+  const value = await fetchProposalContent(sdk, contractId, proposalHash);
+  contentCache.set(key, { at: Date.now(), value });
+  return value;
+}
+
+/** Drops the cached read — called after a save so readers see fresh text. */
+export function invalidateProposalContentCache(
+  contractId: string,
+  proposalHash: string,
+): void {
+  contentCache.delete(`${contractId}:${proposalHash}`);
+}
+
 /**
  * Creates the content document, or updates the existing one (replace with
  * revision + 1 — the official evo-sdk update pattern).
