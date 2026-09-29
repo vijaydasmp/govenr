@@ -12,7 +12,7 @@
  * Honesty    : a "lives on Platform" note is always shown with the content.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from '@/lib/platform/session-context';
 import { createPlatformClient } from '@/lib/platform/client';
 import {
@@ -24,6 +24,7 @@ import { fetchClaimForProposal } from '@/lib/platform/claims';
 import { getStoredContractId } from '@/lib/platform/contract';
 import { describePlatformError } from '@/lib/platform/errors';
 import { shortHandle } from '@/lib/platform/identity';
+import MarkdownView from '@/components/markdown-view';
 
 function FieldLabel({ text }: { text: string }) {
   return (
@@ -42,6 +43,28 @@ const inputStyle = {
   color: 'var(--text)',
 } as const;
 
+/**
+ * Toolbar actions — wrap the selection (or insert a placeholder) as
+ * markdown. Media is by reference: images and videos are links in the
+ * body; the renderer embeds them on the public page.
+ */
+const EDITOR_TOOLS: Array<{
+  label: string;
+  title: string;
+  before: string;
+  after: string;
+  placeholder: string;
+}> = [
+  { label: 'B', title: 'Bold', before: '**', after: '**', placeholder: 'bold text' },
+  { label: 'I', title: 'Italic', before: '*', after: '*', placeholder: 'italic text' },
+  { label: 'H', title: 'Heading', before: '\n## ', after: '\n', placeholder: 'Section' },
+  { label: 'List', title: 'Bullet list', before: '\n- ', after: '', placeholder: 'item' },
+  { label: 'Quote', title: 'Quote', before: '\n> ', after: '\n', placeholder: 'quote' },
+  { label: 'Link', title: 'Web link', before: '[', after: '](https://)', placeholder: 'link text' },
+  { label: 'Image', title: 'Image by URL', before: '![', after: '](https://)', placeholder: 'alt text' },
+  { label: 'Video', title: 'YouTube or Vimeo link — embeds on the public page', before: '[', after: '](https://)', placeholder: 'video title' },
+];
+
 export default function ProposalContentPanel({
   proposalHash,
 }: {
@@ -58,6 +81,8 @@ export default function ProposalContentPanel({
   const [reportRefs, setReportRefs] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editorTab, setEditorTab] = useState<'write' | 'preview'>('write');
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const sdkOrConnect = useCallback(async () => {
     const client = sdk ?? (await createPlatformClient());
@@ -107,7 +132,24 @@ export default function ProposalContentPanel({
     setMilestones(content?.milestones ?? '');
     setReportRefs(content?.reportRefs ?? '');
     setError(null);
+    setEditorTab('write');
     setEditing(true);
+  };
+
+  /** Wraps the current textarea selection with markdown syntax. */
+  const insertAround = (before: string, after: string, placeholder: string) => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+    const selected = body.slice(start, end) || placeholder;
+    const next = body.slice(0, start) + before + selected + after + body.slice(end);
+    setBody(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const s = start + before.length;
+      el.setSelectionRange(s, s + selected.length);
+    });
   };
 
   const save = useCallback(async () => {
@@ -209,16 +251,79 @@ export default function ProposalContentPanel({
         </div>
 
         <div className="space-y-1">
-          <FieldLabel text="Description (markdown, plain lines for now)" />
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            maxLength={16000}
-            rows={10}
-            className="w-full rounded border px-3 py-2 font-mono text-xs focus:outline-none focus-visible:ring-2"
-            style={inputStyle}
-            aria-label="Description"
-          />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <FieldLabel text="Description (markdown)" />
+            <div className="flex items-center gap-1" role="tablist" aria-label="Editor mode">
+              {(['write', 'preview'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={editorTab === tab}
+                  onClick={() => setEditorTab(tab)}
+                  className="rounded px-2 py-0.5 font-mono text-xs focus-visible:outline-none focus-visible:ring-2"
+                  style={{
+                    backgroundColor: editorTab === tab ? 'var(--l1)' : 'transparent',
+                    color: editorTab === tab ? '#ffffff' : 'var(--text-dim)',
+                  }}
+                >
+                  {tab === 'write' ? 'Write' : 'Preview'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {editorTab === 'write' ? (
+            <>
+              <div
+                className="flex flex-wrap items-center gap-1 rounded border px-2 py-1.5"
+                style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
+                role="toolbar"
+                aria-label="Text formatting"
+              >
+                {EDITOR_TOOLS.map((tool) => (
+                  <button
+                    key={tool.label}
+                    type="button"
+                    title={tool.title}
+                    aria-label={tool.title}
+                    onClick={() => insertAround(tool.before, tool.after, tool.placeholder)}
+                    className="rounded px-2 py-0.5 font-mono text-xs focus-visible:outline-none focus-visible:ring-2"
+                    style={{ color: 'var(--text-dim)' }}
+                  >
+                    {tool.label}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                ref={bodyRef}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                maxLength={16000}
+                rows={10}
+                className="w-full rounded border px-3 py-2 font-mono text-xs focus:outline-none focus-visible:ring-2"
+                style={inputStyle}
+                aria-label="Description"
+              />
+              <p className="font-mono text-[10px]" style={{ color: 'var(--text-dim)' }}>
+                Images: ![…](url) · YouTube/Vimeo links embed automatically · the text stays a Platform document
+              </p>
+            </>
+          ) : (
+            <div
+              className="min-h-40 rounded border px-3 py-2"
+              style={inputStyle}
+              aria-label="Preview"
+            >
+              {body.trim() ? (
+                <MarkdownView body={body} />
+              ) : (
+                <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
+                  Nothing to preview yet.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -355,14 +460,7 @@ export default function ProposalContentPanel({
           </p>
         </div>
 
-        {content.body && (
-          <p
-            className="whitespace-pre-wrap text-sm leading-relaxed"
-            style={{ color: 'var(--text)' }}
-          >
-            {content.body}
-          </p>
-        )}
+        {content.body && <MarkdownView body={content.body} />}
 
         {milestoneLines.length > 0 && (
           <div className="space-y-1">
