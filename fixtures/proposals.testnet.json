@@ -1,12 +1,60 @@
 {
   "_meta": {
-    "note": "DEMO SEED DATA for v1 (fixture-backed mirror). _04 tallies are real as of 2026-09-25. Other figures are illustrative placeholders until the Task 0 spike replaces this file with the live L1 mirror path. Replace before calling anything production.",
+    "note": "Fixture seed for v1. The two real-hash entries below match on-chain governance objects on Dash testnet (hashes verified 2026-09-29). Votes are 0/0/0 because both proposals were unfunded at seed time — the live mirror returns the real tallies when NETWORK=testnet. All other fields (title, ownerHandle, engagement) are illustrative placeholders; detail-page content comes from content-service. Replace or regenerate before any production use.",
     "cycle": "_04",
     "cycleLabel": "Cycle _04",
     "network": "testnet",
-    "seededAt": "2026-09-25T00:00:00Z"
+    "seededAt": "2026-09-29T00:00:00Z"
   },
   "proposals": [
+    {
+      "id": "governr-prop1",
+      "hash": "a9a2a15a9c7177878ff902a2007f93f52db2587f0bf9d0c7f56445a31ff7f654",
+      "title": "Govenr — Dash governance app on Platform (prop 1)",
+      "ownerHandle": "@cryptotura",
+      "amountDash": 11,
+      "isMonthly": false,
+      "paymentsRemaining": 1,
+      "category": "development",
+      "state": "needs-more-yes",
+      "votes": {
+        "yes": 0,
+        "no": 0,
+        "abstain": 0
+      },
+      "neededYesToFund": 1,
+      "votingDeadline": "2026-11-01T00:00:00Z",
+      "engagement": {
+        "reviews": 0,
+        "comments": 0,
+        "tippedDash": 0,
+        "verifiedMnos": 0
+      }
+    },
+    {
+      "id": "demo-governr-prop-1",
+      "hash": "750653bbe661bb27851246e4ea0722e00541664505ac5526256b7c1070ebb5db",
+      "title": "Demo Govenr proposal — testnet governance object",
+      "ownerHandle": "@cryptotura",
+      "amountDash": 1,
+      "isMonthly": false,
+      "paymentsRemaining": 1,
+      "category": "development",
+      "state": "needs-more-yes",
+      "votes": {
+        "yes": 0,
+        "no": 0,
+        "abstain": 0
+      },
+      "neededYesToFund": 1,
+      "votingDeadline": "2026-11-01T00:00:00Z",
+      "engagement": {
+        "reviews": 0,
+        "comments": 0,
+        "tippedDash": 0,
+        "verifiedMnos": 0
+      }
+    },
     {
       "id": "BTCBACKPORTSVIJAY_04",
       "hash": "8576a3dbc52f93b8c333ed7398b592d569dbaa2d7647ea3e143f07c949034939",
@@ -81,6 +129,27 @@
     }
   ],
   "content": {
+    "governr-prop1": {
+      "title": "Govenr — Dash governance app on Platform (prop 1)",
+      "body": "Govenr is a standalone, open-source governance app for Dash built on Dash Platform. It mirrors L1 governance data (proposals, tallies) and stores proposal content, discussion, and reviews as Platform data contracts — so the community's reasoning is never lost when a hosted service goes down. This first proposal funds the v1 milestone: fixture-backed hub, proposal detail pages, comments, reviews, and tipping scaffolding.",
+      "milestones": [
+        "Hub listing all active proposals with live tally mirror",
+        "Proposal detail page with Overview, Discussion, Reviews, and Votes tabs",
+        "Comment and review persistence via Platform data contracts",
+        "Simulated tipping with receipt display"
+      ],
+      "reportRefs": []
+    },
+    "demo-governr-prop-1": {
+      "title": "Demo Govenr proposal — testnet governance object",
+      "body": "Illustrative demo proposal used during Govenr v1 development to validate the testnet mirror path. This governance object was submitted to Dash testnet to confirm that the Insight API returns the correct hash and DataObject fields. Not a real funding request.",
+      "milestones": [
+        "Verify Insight API returns hash 750653bb…",
+        "Confirm DataObject.name = demo-governr-prop-1",
+        "Confirm zero-vote guard renders correctly"
+      ],
+      "reportRefs": []
+    },
     "BTCBACKPORTSVIJAY_04": {
       "title": "New Dash Core — Monthly Maintenance, Cleanup & Upstream Backports",
       "body": "Independent upstream Bitcoin backporting and Core maintenance. Track bitcoin/bitcoin for safe improvements, adapt them through Dash's divergence (ChainLocks, InstantSend, quorums, governance), every PR reviewed and approved by Core maintainers before merge. A backport backlog is unpatched bugs — this funds the routine integration that keeps Dash secure and current without touching consensus.",

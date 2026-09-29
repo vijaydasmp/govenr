@@ -48,7 +48,10 @@ export type Proposal = {
  * Where the mirror data was sourced from in this response.
  * Rendered as a small badge near the cycle strip (honesty requirement).
  */
-export type MirrorSource = 'live DashCentral (mainnet)' | 'fixture';
+export type MirrorSource =
+  | 'live insight (testnet)'
+  | 'live node RPC (mainnet)'
+  | 'fixture';
 
 export type CycleInfo = {
   cycle: string;       // e.g. "_04"

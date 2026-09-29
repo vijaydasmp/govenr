@@ -1,26 +1,34 @@
 /**
  * lib/mirror/proposal-mirror.ts
  *
- * SOURCE: live DashCentral (mainnet) via /api/mirror/proposals
- * Fallback: fixture (served by the same route handler on fetch failure)
- * Swap point: replace the route handler's fetch target when a better L1
- * source is available. This module and the ProposalMirror interface are
- * unchanged on swap.
+ * SOURCE: live insight (testnet) | live node RPC (mainnet) | fixture
+ * Swap point: change NETWORK env var — no UI code changes required.
  *
- * IMPORTANT — client-only usage:
- * fetchMirror() uses a relative URL (/api/mirror/proposals) which only
- * resolves correctly in the browser. Do not call getProposals() or
- * getProposal() during SSR; use the route handler directly from server
- * components instead. getCycle() is always safe — it reads the in-memory
- * cache synchronously.
+ * Server-side only. Called from app/api/mirror/proposals/route.ts.
+ * Do NOT import this module from client components — use the mirror API
+ * route (/api/mirror/proposals) via proposalMirror (client cache) instead.
  *
- * See docs/spike-l1-mirror.md for the full path decision.
+ * Network selection:
+ *   NETWORK=testnet  → GET https://insight.testnet.networks.dash.org/insight-api/gobject/list/proposal
+ *   NETWORK=mainnet  → JSON-RPC POST https://dash-rpc.publicnode.com/ (gobject list + getgovernanceinfo)
+ *   (default)        → testnet
+ *   Any fetch failure → fixture fallback
+ *
+ * See docs/spike-l1-mirror.md for the path decision.
  */
 
-import type { Proposal, CycleInfo, MirrorResponse } from '@/lib/types';
+import type {
+  Proposal,
+  ProposalState,
+  ProposalVotes,
+  CycleInfo,
+  MirrorSource,
+  MirrorResponse,
+} from '@/lib/types';
+import fixtureData from '@/fixtures/proposals.testnet.json';
 
 // ---------------------------------------------------------------------------
-// Interface — unchanged across all mirror paths
+// ProposalMirror interface — unchanged across all mirror paths
 // ---------------------------------------------------------------------------
 
 export interface ProposalMirror {
@@ -32,73 +40,368 @@ export interface ProposalMirror {
 
   /**
    * Returns all proposals in the current cycle.
-   * Always resolves — the route handler falls back to fixtures on API error.
-   * Call from client components only (relative URL requires a browser base).
+   * Always resolves — falls back to fixtures on any upstream error.
+   * Call from client components only (uses a relative URL).
    */
   getProposals(): Promise<Proposal[]>;
 
   /**
-   * Returns a single proposal by id (DashCentral slug) or hash, or null.
+   * Returns a single proposal by id or hash, or null.
    * Call from client components only.
    */
   getProposal(id: string): Promise<Proposal | null>;
 }
 
 // ---------------------------------------------------------------------------
-// In-memory cache — avoids redundant fetches within the same 60 s window.
-// The route handler handles its own ISR cache on the server side.
+// Client-side cache (60 s TTL) — hits /api/mirror/proposals (same-origin)
 // ---------------------------------------------------------------------------
 
-type CacheEntry = {
-  data: MirrorResponse;
-  fetchedAt: number; // Date.now() ms
-};
-
+type CacheEntry = { data: MirrorResponse; fetchedAt: number };
 let _cache: CacheEntry | null = null;
 const CACHE_TTL_MS = 60_000;
 
-async function fetchMirror(): Promise<MirrorResponse> {
+async function fetchFromRoute(): Promise<MirrorResponse> {
   const now = Date.now();
   if (_cache !== null && now - _cache.fetchedAt < CACHE_TTL_MS) {
     return _cache.data;
   }
-
-  // Relative URL — works in the browser (same-origin).
-  // next: { revalidate } is a Next.js server fetch extension; casting to
-  // RequestInit suppresses the type error. In the browser the key is ignored
-  // and the browser's own HTTP cache respects the Cache-Control headers the
-  // route handler sets via revalidate = 60.
   const res = await fetch('/api/mirror/proposals', {
     next: { revalidate: 60 },
   } as RequestInit);
-
-  if (!res.ok) {
-    throw new Error(`Mirror fetch failed: HTTP ${res.status}`);
-  }
-
+  if (!res.ok) throw new Error(`Mirror fetch failed: HTTP ${res.status}`);
   const data = (await res.json()) as MirrorResponse;
   _cache = { data, fetchedAt: now };
   return data;
 }
 
-// ---------------------------------------------------------------------------
-// Implementation
-// ---------------------------------------------------------------------------
-
 export const proposalMirror: ProposalMirror = {
   getCycle(): CycleInfo | null {
     return _cache?.data.cycle ?? null;
   },
-
   async getProposals(): Promise<Proposal[]> {
-    const data = await fetchMirror();
-    return data.proposals;
+    return (await fetchFromRoute()).proposals;
   },
-
   async getProposal(id: string): Promise<Proposal | null> {
-    const data = await fetchMirror();
+    const data = await fetchFromRoute();
     return data.proposals.find((p) => p.id === id || p.hash === id) ?? null;
   },
 };
 
 export default proposalMirror;
+
+// ---------------------------------------------------------------------------
+// Server-side fetch — called by the route handler only
+// ---------------------------------------------------------------------------
+
+const TESTNET_INSIGHT_URL =
+  'https://insight.testnet.networks.dash.org/insight-api/gobject/list/proposal';
+
+const MAINNET_RPC_URL = 'https://dash-rpc.publicnode.com/';
+
+const FETCH_TIMEOUT_MS = 10_000;
+
+// Raw shape coming back from the Insight API
+interface InsightProposal {
+  Hash?: string;
+  DataObject?: {
+    name?: string;
+    payment_address?: string;
+    payment_amount?: number;
+    start_epoch?: number;
+    end_epoch?: number;
+    type?: number;
+    url?: string;
+  };
+  AbsoluteYesCount?: number;
+  YesCount?: number;
+  NoCount?: number;
+  AbstainCount?: number;
+}
+
+// Raw shape coming back from the mainnet RPC gobject list
+interface RpcGobjectEntry {
+  Hash?: string;
+  DataString?: string;
+  AbsoluteYesCount?: number;
+  YesCount?: number;
+  NoCount?: number;
+  AbstainCount?: number;
+}
+
+function epochToIso(epoch: number): string {
+  return new Date(epoch * 1000).toISOString();
+}
+
+function deriveState(
+  yes: number,
+  no: number,
+  neededYesToFund: number,
+  deadline: string | null,
+): ProposalState {
+  if (neededYesToFund <= 0) return 'queued-next-cycle';
+  const netYes = yes - no;
+  if (netYes < 0) return 'not-funded';
+  if (deadline !== null && new Date(deadline).getTime() > Date.now()) {
+    return 'needs-more-yes';
+  }
+  return 'not-funded';
+}
+
+// ---------------------------------------------------------------------------
+// Testnet adapter (Insight API)
+// ---------------------------------------------------------------------------
+
+async function fetchTestnet(): Promise<MirrorResponse> {
+  const res = await fetch(TESTNET_INSIGHT_URL, {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Testnet Insight HTTP ${res.status}`);
+  }
+
+  const raw: unknown = await res.json();
+  if (!Array.isArray(raw)) {
+    throw new Error('Testnet Insight: expected array, got unexpected shape');
+  }
+
+  const source: MirrorSource = 'live insight (testnet)';
+  const now = new Date().toISOString();
+
+  const proposals: Proposal[] = (raw as InsightProposal[]).flatMap((item) => {
+    try {
+      const hash = item.Hash;
+      if (!hash) return [];
+
+      const d = item.DataObject;
+      if (!d || !d.name) return [];
+
+      const yes = item.YesCount ?? 0;
+      const no = item.NoCount ?? 0;
+      const abstain = item.AbstainCount ?? 0;
+      const votes: ProposalVotes = { yes, no, abstain };
+
+      const endEpoch = d.end_epoch;
+      const votingDeadline = endEpoch != null ? epochToIso(endEpoch) : null;
+
+      // neededYesToFund: rough estimate — absolute yes threshold unknown on
+      // testnet; use AbsoluteYesCount proxy (negative means already funded)
+      const absoluteYes = item.AbsoluteYesCount ?? yes - no;
+      const neededYesToFund = absoluteYes < 0 ? 0 : Math.max(0, 1 - absoluteYes);
+
+      const state = deriveState(yes, no, neededYesToFund, votingDeadline);
+
+      const amountDash = d.payment_amount ?? 0;
+
+      return [
+        {
+          id: d.name,
+          hash,
+          title: d.name,           // detail page will overlay richer title from content-service
+          ownerHandle: d.payment_address
+            ? `${d.payment_address.slice(0, 8)}…`
+            : 'unknown',
+          amountDash,
+          isMonthly: false,
+          paymentsRemaining: 1,
+          state,
+          votes,
+          neededYesToFund,
+          votingDeadline,
+          engagement: { reviews: 0, comments: 0, tippedDash: 0, verifiedMnos: 0 },
+        } satisfies Proposal,
+      ];
+    } catch {
+      // Skip malformed entries — never crash the whole list
+      return [];
+    }
+  });
+
+  const cycle: CycleInfo = {
+    cycle: 'live',
+    label: 'Live testnet',
+    network: 'testnet',
+    lastUpdated: now,
+    source,
+  };
+
+  return { source, cycle, proposals };
+}
+
+// ---------------------------------------------------------------------------
+// Mainnet adapter (JSON-RPC)
+// ---------------------------------------------------------------------------
+
+async function rpcPost(method: string, params: unknown[]): Promise<unknown> {
+  const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params });
+  const res = await fetch(MAINNET_RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body,
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Mainnet RPC HTTP ${res.status}`);
+  const json = (await res.json()) as { result?: unknown; error?: unknown };
+  if (json.error) throw new Error(`Mainnet RPC error: ${JSON.stringify(json.error)}`);
+  return json.result;
+}
+
+async function fetchMainnet(): Promise<MirrorResponse> {
+  const [gobjectsRaw, govInfoRaw] = await Promise.all([
+    rpcPost('gobject', ['list', 'all', 'proposals']),
+    rpcPost('getgovernanceinfo', []),
+  ]);
+
+  // gobject list returns a map keyed by hash
+  if (typeof gobjectsRaw !== 'object' || gobjectsRaw === null) {
+    throw new Error('Mainnet RPC: gobject list returned unexpected shape');
+  }
+
+  const govInfo =
+    typeof govInfoRaw === 'object' && govInfoRaw !== null
+      ? (govInfoRaw as Record<string, unknown>)
+      : {};
+  const fundingThreshold =
+    typeof govInfo.fundingthreshold === 'number' ? govInfo.fundingthreshold : 10;
+
+  const source: MirrorSource = 'live node RPC (mainnet)';
+  const now = new Date().toISOString();
+
+  const proposals: Proposal[] = Object.entries(
+    gobjectsRaw as Record<string, RpcGobjectEntry>,
+  ).flatMap(([hash, entry]) => {
+    try {
+      // Parse DataString (JSON-encoded proposal data)
+      const dataStr = entry.DataString;
+      if (!dataStr) return [];
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(dataStr);
+      } catch {
+        return [];
+      }
+
+      // DataString is an array: [["proposal", {...}]]
+      if (!Array.isArray(parsed) || !Array.isArray(parsed[0])) return [];
+      const inner = parsed[0][1] as Record<string, unknown> | undefined;
+      if (!inner || typeof inner.name !== 'string') return [];
+
+      const yes = entry.YesCount ?? 0;
+      const no = entry.NoCount ?? 0;
+      const abstain = entry.AbstainCount ?? 0;
+      const votes: ProposalVotes = { yes, no, abstain };
+
+      const endEpoch =
+        typeof inner.end_epoch === 'number' ? inner.end_epoch : null;
+      const votingDeadline = endEpoch != null ? epochToIso(endEpoch) : null;
+
+      const absoluteYes = entry.AbsoluteYesCount ?? yes - no;
+      const neededYesToFund = Math.max(
+        0,
+        fundingThreshold - absoluteYes,
+      );
+
+      const state = deriveState(yes, no, neededYesToFund, votingDeadline);
+
+      const amountDash =
+        typeof inner.payment_amount === 'number' ? inner.payment_amount : 0;
+
+      const paymentAddress =
+        typeof inner.payment_address === 'string' ? inner.payment_address : '';
+
+      return [
+        {
+          id: inner.name,
+          hash,
+          title: inner.name,
+          ownerHandle: paymentAddress ? `${paymentAddress.slice(0, 8)}…` : 'unknown',
+          amountDash,
+          isMonthly: false,
+          paymentsRemaining: 1,
+          state,
+          votes,
+          neededYesToFund,
+          votingDeadline,
+          engagement: { reviews: 0, comments: 0, tippedDash: 0, verifiedMnos: 0 },
+        } satisfies Proposal,
+      ];
+    } catch {
+      return [];
+    }
+  });
+
+  const cycle: CycleInfo = {
+    cycle: 'live',
+    label: 'Live mainnet',
+    network: 'mainnet',
+    lastUpdated: now,
+    source,
+  };
+
+  return { source, cycle, proposals };
+}
+
+// ---------------------------------------------------------------------------
+// Fixture fallback
+// ---------------------------------------------------------------------------
+
+function fixtureResponse(): MirrorResponse {
+  const proposals: Proposal[] = fixtureData.proposals.map((p) => ({
+    id: p.id,
+    hash: p.hash,
+    title: p.title,
+    ownerHandle: p.ownerHandle,
+    amountDash: p.amountDash,
+    isMonthly: p.isMonthly,
+    paymentsRemaining: p.paymentsRemaining,
+    state: p.state as ProposalState,
+    votes: { yes: p.votes.yes, no: p.votes.no, abstain: p.votes.abstain },
+    neededYesToFund: p.neededYesToFund,
+    votingDeadline: p.votingDeadline,
+    engagement: {
+      reviews: p.engagement.reviews,
+      comments: p.engagement.comments,
+      tippedDash: p.engagement.tippedDash,
+      verifiedMnos: p.engagement.verifiedMnos,
+    },
+  }));
+
+  const cycle: CycleInfo = {
+    cycle: fixtureData._meta.cycle,
+    label: fixtureData._meta.cycleLabel,
+    network: fixtureData._meta.network,
+    lastUpdated: fixtureData._meta.seededAt,
+    source: 'fixture',
+  };
+
+  return { source: 'fixture', cycle, proposals };
+}
+
+// ---------------------------------------------------------------------------
+// Public server-side entry point — called by the route handler
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches proposals from the appropriate upstream based on the NETWORK env
+ * variable. Falls back to fixtures on any error.
+ *
+ * NETWORK=testnet  → Insight API (default)
+ * NETWORK=mainnet  → Dash Core JSON-RPC
+ */
+export async function fetchProposals(): Promise<MirrorResponse> {
+  const network = (process.env.NETWORK ?? 'testnet').toLowerCase();
+
+  try {
+    if (network === 'mainnet') {
+      return await fetchMainnet();
+    }
+    return await fetchTestnet();
+  } catch (err) {
+    console.warn(`[mirror] ${network} fetch failed — fixture fallback:`, err);
+    return fixtureResponse();
+  }
+}
