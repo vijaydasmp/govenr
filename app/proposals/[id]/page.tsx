@@ -14,6 +14,7 @@ import { dashWithSymbol } from '@/lib/format/dash';
 import { timeUntil } from '@/lib/format/dates';
 import Link from 'next/link';
 import ClaimPanel from '@/components/claim-panel';
+import ProposalContentPanel from '@/components/proposal-content-panel';
 
 
 export const revalidate = 60;
@@ -95,18 +96,10 @@ export default async function ProposalDetailPage({ params }: Props) {
         collateralAddress={proposal.collateralAddress}
       />
 
-      {/* Placeholder for tabs — wired in a subsequent step */}
-      <div
-        className="rounded-lg border px-6 py-8 text-center"
-        style={{
-          backgroundColor: 'var(--surface)',
-          borderColor: 'var(--border)',
-        }}
-      >
-        <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
-          Overview · Discussion · Reviews · Votes — coming in the next step.
-        </p>
-      </div>
+      {/* S9c: proposal content — written by the claimant, stored on
+          Platform, rendered for everyone. Discussion/Reviews/Votes come
+          in a later step. */}
+      <ProposalContentPanel proposalHash={proposal.hash} />
     </div>
   );
 }

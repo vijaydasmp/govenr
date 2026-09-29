@@ -22,7 +22,7 @@ import type { DashSdk } from '@/lib/platform/types';
  * indexed `entryHash` field (type string, 44 chars, fits the 63-char index
  * limit). All-string documents sidestep the byteArray wasm-boundary
  * encoding minefield entirely (Uint8Array / plain arrays both fail there). */
-function hexToBase64(hex: string): string {
+export function hexToBase64(hex: string): string {
   const clean = hex.trim().toLowerCase();
   let binary = '';
   for (let i = 0; i < clean.length; i += 2) {

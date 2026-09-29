@@ -32,37 +32,13 @@ import {
   getStoredContractId,
 } from '@/lib/platform/contract';
 import { shortHandle } from '@/lib/platform/identity';
+import { describePlatformError } from '@/lib/platform/errors';
 
 type ClaimState =
   | 'unknown'
   | 'unclaimed'
   | 'claimed-by-you'
   | 'claimed-by-other';
-
-/**
- * Extracts a readable message from anything the evo-sdk throws. The SDK's
- * wasm errors (WasmDppError, WasmSdkError) have .message/.name getters but
- * do NOT extend Error — the generic instanceof check loses their text.
- */
-function describePlatformError(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  const e = err as { message?: unknown; name?: unknown };
-  const message =
-    typeof e?.message === 'string' || typeof e?.message === 'number'
-      ? String(e.message)
-      : '';
-  if (message) {
-    const name = typeof e?.name === 'string' ? e.name : '';
-    return name ? `${name}: ${message}` : message;
-  }
-  try {
-    const json = JSON.stringify(err);
-    if (json && json !== '{}') return json;
-  } catch {
-    // not serializable
-  }
-  return 'Claim submission failed.';
-}
 
 export default function ClaimPanel({
   proposalHash,
@@ -231,8 +207,8 @@ export default function ClaimPanel({
           Claimed by you
         </p>
         <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
-          Proposal editing unlocks in the next step — the proposal text will
-          live on Platform as a document you own.
+          You own this proposal. Write its description and milestones below —
+          the text lives on Dash Platform as documents you control.
         </p>
       </div>
     );

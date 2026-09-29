@@ -32,6 +32,8 @@ export type PlatformDocument = {
   id: { toString(): string };
   ownerId: { toString(): string };
   createdAt?: bigint;
+  /** Current revision — bumped by +1n on replace (update). */
+  revision?: bigint;
   properties: Record<string, unknown>;
 };
 
@@ -55,6 +57,12 @@ export type DashSdk = {
       limit?: number;
     }): Promise<Map<string, PlatformDocument | undefined>>;
     create(opts: {
+      document: unknown;
+      identityKey: unknown;
+      signer: unknown;
+    }): Promise<void>;
+    /** Replaces a mutable document (revision must be previous + 1n). */
+    replace(opts: {
       document: unknown;
       identityKey: unknown;
       signer: unknown;
