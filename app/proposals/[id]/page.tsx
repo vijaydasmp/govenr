@@ -36,13 +36,13 @@ export default async function ProposalDetailPage({ params }: Props) {
   return (
     <div className="max-w-5xl mx-auto px-6 py-10 space-y-6">
       {/* Back link */}
-      <a
+      <Link
         href="/"
         className="font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
         style={{ color: 'var(--text-dim)' }}
       >
         ← All proposals
-      </a>
+      </Link>
 
       {/* Header */}
       <div className="space-y-3">
