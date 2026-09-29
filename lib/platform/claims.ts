@@ -17,6 +17,16 @@ import { assertClientSide } from '@/lib/platform/sdk-module';
 import { getSigningContext } from '@/lib/platform/contract';
 import type { DashSdk } from '@/lib/platform/types';
 
+/** Hex string -> raw bytes (for the byteArray schema fields). */
+function hexToBytes(hex: string): Uint8Array {
+  const clean = hex.trim().toLowerCase();
+  const out = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < out.length; i += 1) {
+    out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
 /** A fresh challenge: govenr-claim:<proposalHash>:<identityId>:<nonce>. */
 export function buildClaimChallenge(
   proposalHash: string,
@@ -54,7 +64,8 @@ export async function submitClaim(
   );
   const document = new mod.Document({
     properties: {
-      proposalHash: opts.proposalHash,
+      // Schema v1: indexed hash fields are byte arrays (maxItems 32)
+      proposalHash: hexToBytes(opts.proposalHash),
       verifiedAddress: opts.verifiedAddress,
       challenge: opts.challenge,
       signature: opts.signature,
@@ -86,7 +97,7 @@ export async function fetchClaimForProposal(
     const results = await sdk.documents.query({
       dataContractId: contractId,
       documentTypeName: 'claim',
-      where: [['proposalHash', '==', proposalHash]],
+      where: [['proposalHash', '==', hexToBytes(proposalHash)]],
       limit: 1,
     });
     for (const doc of results.values()) {

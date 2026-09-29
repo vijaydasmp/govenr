@@ -34,11 +34,12 @@
       ],
       "properties": {
         "proposalHash": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$",
-          "maxLength": 64,
-          "description": "L1 governance object hash this content belongs to",
-          "position": 0
+          "type": "array",
+          "byteArray": true,
+          "minItems": 32,
+          "maxItems": 32,
+          "position": 0,
+          "description": "L1 governance object hash this content belongs to (raw 32 bytes)"
         },
         "title": {
           "type": "string",
@@ -101,11 +102,12 @@
       ],
       "properties": {
         "proposalHash": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$",
-          "maxLength": 64,
-          "description": "L1 governance object hash being claimed",
-          "position": 0
+          "type": "array",
+          "byteArray": true,
+          "minItems": 32,
+          "maxItems": 32,
+          "position": 0,
+          "description": "L1 governance object hash being claimed (raw 32 bytes)"
         },
         "verifiedAddress": {
           "type": "string",
@@ -155,11 +157,12 @@
       ],
       "properties": {
         "proposalHash": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$",
-          "maxLength": 64,
-          "description": "L1 governance object hash being discussed",
-          "position": 0
+          "type": "array",
+          "byteArray": true,
+          "minItems": 32,
+          "maxItems": 32,
+          "position": 0,
+          "description": "L1 governance object hash being discussed (raw 32 bytes)"
         },
         "body": {
           "type": "string",
@@ -211,11 +214,12 @@
       ],
       "properties": {
         "proposalHash": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$",
-          "maxLength": 64,
-          "description": "L1 governance object hash being reviewed",
-          "position": 0
+          "type": "array",
+          "byteArray": true,
+          "minItems": 32,
+          "maxItems": 32,
+          "position": 0,
+          "description": "L1 governance object hash being reviewed (raw 32 bytes)"
         },
         "stance": {
           "type": "string",
@@ -273,11 +277,12 @@
       ],
       "properties": {
         "docRef": {
-          "type": "string",
-          "pattern": "^(review|comment):[A-Za-z0-9_-]{1,64}$",
-          "maxLength": 96,
-          "description": "What was tipped, as '<type>:<documentId>'",
-          "position": 0
+          "type": "array",
+          "byteArray": true,
+          "minItems": 1,
+          "maxItems": 96,
+          "position": 0,
+          "description": "What was tipped, as '<type>:<documentId>' (UTF-8 bytes)"
         },
         "toId": {
           "type": "string",
@@ -293,11 +298,12 @@
           "position": 2
         },
         "txid": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$",
-          "maxLength": 64,
-          "description": "L1 transaction id of the payment",
-          "position": 3
+          "type": "array",
+          "byteArray": true,
+          "minItems": 32,
+          "maxItems": 32,
+          "position": 3,
+          "description": "L1 transaction id of the payment (raw 32 bytes)"
         }
       },
       "required": [
