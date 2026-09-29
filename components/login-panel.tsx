@@ -26,7 +26,6 @@ import { useSession } from '@/lib/platform/session-context';
 import { createPlatformClient } from '@/lib/platform/client';
 import { encryptMnemonic, decryptMnemonic } from '@/lib/platform/crypto';
 import {
-  hasStoredWallet,
   saveEncryptedMnemonic,
   loadEncryptedMnemonic,
   saveIdentityId,
@@ -337,7 +336,7 @@ function NewWalletSetupPanel({
       appendLog('Connected.');
 
       // Derive funding address
-      const addr = await deriveFundingAddress(sdk, mnemonic);
+      const addr = await deriveFundingAddress(mnemonic);
       setFundingAddress(addr);
       onStatusUpdate('funding', { fundingAddress: addr });
       appendLog(`Fund this address with tDASH: ${addr}`);
@@ -385,7 +384,6 @@ function NewWalletSetupPanel({
       });
       setBusy(false);
     }
-    // suppress unused-variable lint for cleared strings
   }, [
     passphrase,
     confirm,
@@ -458,17 +456,28 @@ function NewWalletSetupPanel({
                 {fundingAddress}
               </p>
               <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
-                Need ≥ 0.005 tDASH. Get testnet DASH from the{' '}
+                Platform addresses can only receive credits through the{' '}
                 <a
-                  href="https://testnet-faucet.dash.org/"
+                  href={`https://bridge.thepasta.org/?address=${fundingAddress}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ color: 'var(--l1)' }}
                   className="underline focus-visible:outline-none focus-visible:ring-1"
                 >
-                  testnet faucet
-                </a>
-                .
+                  Dash Bridge
+                </a>{' '}
+                (community testnet tool). Send tDASH from your Dash Core testnet
+                wallet through the bridge — 0.001 tDASH is plenty. No funds yet?{' '}
+                <a
+                  href="https://faucet.testnet.networks.dash.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--l1)' }}
+                  className="underline focus-visible:outline-none focus-visible:ring-1"
+                >
+                  faucet
+                </a>{' '}
+                first, then bridge.
               </p>
             </div>
           )}
@@ -607,14 +616,18 @@ type Flow = 'choose' | 'new-mnemonic' | 'new-setup' | 'import';
 
 export default function LoginPanel() {
   const { session } = useSession();
-  const [flow, setFlow] = useState<Flow>(() =>
-    session.status === 'locked' ? ('choose' as Flow) : ('choose' as Flow),
-  );
+  const [flow, setFlow] = useState<Flow>('choose');
   const [generatedMnemonic, setGeneratedMnemonic] = useState('');
   const [done, setDone] = useState(false);
 
   // Transition: locked → show unlock directly
   const isLocked = session.status === 'locked';
+
+  // Drop the plaintext mnemonic from memory as soon as the flow is done.
+  const finishFlow = useCallback(() => {
+    setGeneratedMnemonic('');
+    setDone(true);
+  }, []);
 
   const startNew = useCallback(async () => {
     const mn = await generateMnemonic();
@@ -675,7 +688,7 @@ export default function LoginPanel() {
       >
         <NewWalletSetupPanel
           mnemonic={generatedMnemonic}
-          onComplete={() => setDone(true)}
+          onComplete={finishFlow}
         />
       </div>
     );

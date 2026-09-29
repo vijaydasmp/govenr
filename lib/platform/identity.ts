@@ -4,29 +4,34 @@
  * Identity registration, lookup, and DPNS name resolution wrappers.
  *
  * SOURCE: live Dash Platform (testnet DAPI)
- * Swap point: pass network='mainnet' in createPlatformClient for mainnet.
+ * Swap point: pass network='mainnet' to the key managers for mainnet.
  *
  * Client-side only. Never import from server components.
+ *
+ * Key managers are ports of the official Dash Platform tutorial helpers
+ * (see lib/platform/key-managers.ts for provenance).
  *
  * Known SDK issue (dashpay/platform#3095):
  *   sdk.addresses.createIdentity() may throw a proof-verification error
  *   even when the identity was successfully created. The real identity ID
  *   is embedded in the error message. We extract it and treat this as
- *   a success. Any other error is re-thrown.
+ *   a success — same workaround as the official tutorials. Any other
+ *   error is re-thrown.
  */
 
 import { assertClientSide, loadSdkModule } from '@/lib/platform/sdk-module';
 import { NETWORK } from '@/lib/platform/client';
+import {
+  AddressKeyManager,
+  IdentityKeyManager,
+} from '@/lib/platform/key-managers';
 import type { DashSdk } from '@/lib/platform/types';
 
 // ---------------------------------------------------------------------------
 // Mnemonic generation
 // ---------------------------------------------------------------------------
 
-/**
- * Generate a fresh BIP-39 mnemonic (12 words).
- * Uses wallet.generateMnemonic() from the SDK.
- */
+/** Generate a fresh BIP-39 mnemonic (12 words). */
 export async function generateMnemonic(): Promise<string> {
   assertClientSide('generateMnemonic');
   const { wallet } = await loadSdkModule();
@@ -37,18 +42,14 @@ export async function generateMnemonic(): Promise<string> {
 // Address key manager (for funding address + identity creation)
 // ---------------------------------------------------------------------------
 
-/**
- * Derives the primary Platform address (bech32m tdash1…) from a mnemonic.
- * This is the address users fund with tDASH before identity registration.
- */
+/** Derives the primary Platform address (bech32m tdash1…) from a mnemonic.
+ * This is the address users fund before identity registration. */
 export async function deriveFundingAddress(
-  sdk: DashSdk,
   mnemonic: string,
 ): Promise<string> {
   assertClientSide('deriveFundingAddress');
-  const { AddressKeyManager } = await loadSdkModule();
   const addrKm = await AddressKeyManager.create({
-    sdk: sdk as unknown as Parameters<typeof AddressKeyManager.create>[0]['sdk'],
+    sdk: null,
     mnemonic,
     network: NETWORK,
     count: 1,
@@ -84,13 +85,15 @@ export async function getFundingAddressBalance(
 // Identity registration
 // ---------------------------------------------------------------------------
 
-const IDENTITY_FUNDING_CREDITS = 5_000_000n; // 5 000 000 credits ≈ 0.0005 DASH
+/** Credits transferred from the funding address to the new identity. */
+const IDENTITY_FUNDING_CREDITS = 5_000_000n; // matches the official tutorials
 
 /**
  * Registers a new identity on testnet and returns its ID string.
  *
- * Handles the known proof-verification bug by extracting the real identity
- * ID from the error message when the error pattern matches.
+ * Handles the known proof-verification bug (dashpay/platform#3095) by
+ * extracting the real identity ID from the error message when the error
+ * pattern matches — identical to the official tutorial workaround.
  */
 export async function registerIdentity(
   sdk: DashSdk,
@@ -98,36 +101,27 @@ export async function registerIdentity(
   onLog?: (msg: string) => void,
 ): Promise<string> {
   assertClientSide('registerIdentity');
-  const { AddressKeyManager, IdentityKeyManager, Identity, Identifier } =
-    await loadSdkModule();
+  const mod = await loadSdkModule();
 
-  onLog?.('Deriving keys…');
-
-  const rawSdk =
-    sdk as unknown as Parameters<typeof AddressKeyManager.create>[0]['sdk'];
-
-  const [addrKm, keyManager] = await Promise.all([
-    AddressKeyManager.create({ sdk: rawSdk, mnemonic, network: NETWORK }),
+  onLog?.('Deriving identity keys…');
+  const [keyManager, addrKm] = await Promise.all([
     IdentityKeyManager.createForNewIdentity({
-      sdk: rawSdk,
+      sdk,
       mnemonic,
       network: NETWORK,
     }),
+    AddressKeyManager.create({ sdk, mnemonic, network: NETWORK }),
   ]);
 
   onLog?.('Building identity shell…');
-
-  // randomBytes equivalent via Web Crypto
+  // Browser-safe random 32 bytes (replaces node:crypto randomBytes).
   const randomId = crypto.getRandomValues(new Uint8Array(32));
-  const identity = new Identity(new Identifier(randomId));
-  keyManager.getKeysInCreation().forEach((key: { toIdentityPublicKey(): unknown }) => {
-    (identity as unknown as { addPublicKey(k: unknown): void }).addPublicKey(
-      key.toIdentityPublicKey(),
-    );
-  });
+  const identity = new mod.Identity(new mod.Identifier(randomId));
+  for (const key of keyManager.getKeysInCreation()) {
+    identity.addPublicKey(key.toIdentityPublicKey());
+  }
 
   onLog?.('Submitting identity creation state transition…');
-
   try {
     const result = await sdk.addresses.createIdentity({
       identity,
@@ -163,34 +157,29 @@ export async function registerIdentity(
 
 /**
  * Resolves the identity ID from a mnemonic (for returning users).
- * Uses the master key's public key hash to look up the on-chain identity.
+ * Looks up the master key's public key hash on-chain.
  */
 export async function resolveIdentityFromMnemonic(
   sdk: DashSdk,
   mnemonic: string,
 ): Promise<string> {
   assertClientSide('resolveIdentityFromMnemonic');
-  const { IdentityKeyManager } = await loadSdkModule();
-  const rawSdk =
-    sdk as unknown as Parameters<typeof IdentityKeyManager.create>[0]['sdk'];
   const km = await IdentityKeyManager.create({
-    sdk: rawSdk,
+    sdk,
     mnemonic,
     network: NETWORK,
   });
-  const id = km.identityId;
-  if (!id) throw new Error('No identity found for this mnemonic on testnet.');
-  return id;
+  if (!km.identityId) {
+    throw new Error('No identity found for this recovery phrase on testnet.');
+  }
+  return km.identityId;
 }
 
 // ---------------------------------------------------------------------------
 // DPNS name lookup
 // ---------------------------------------------------------------------------
 
-/**
- * Returns the first registered DPNS name for an identity, or null.
- * e.g. "alice.dash"
- */
+/** Returns the first registered DPNS name for an identity, or null. */
 export async function resolveDpnsName(
   sdk: DashSdk,
   identityId: string,
@@ -209,10 +198,7 @@ export async function resolveDpnsName(
 // Display handle helper
 // ---------------------------------------------------------------------------
 
-/**
- * Returns a short display handle: DPNS name if available, otherwise
- * first 6 + "…" + last 4 chars of the identity id.
- */
+/** Short display handle: DPNS name if available, else 6…4 of the identity id. */
 export function shortHandle(
   identityId: string,
   dpnsName: string | null,

@@ -16,8 +16,10 @@
 export type DashSdk = {
   connect(): Promise<void>;
   identities: {
-    fetch(id: string): Promise<DashIdentity | null>;
-    byPublicKeyHash(hash: Uint8Array): Promise<DashIdentity | null>;
+    /** Looks up an identity by master public key hash (hex string). */
+    byPublicKeyHash(
+      publicKeyHash: string,
+    ): Promise<{ id: { toString(): string } } | null>;
   };
   dpns: {
     usernames(opts: { identityId: string }): Promise<string[]>;
@@ -32,32 +34,6 @@ export type DashSdk = {
     }): Promise<{ identity: { id: { toString(): string } } }>;
   };
   version(): number;
-};
-
-export type DashIdentity = {
-  id: { toString(): string };
-  balance: number | bigint;
-};
-
-/** Opaque key manager — wraps DIP-9 derived keys for signing. */
-export type DashKeyManager = {
-  identityId: string | null;
-  getAuth(): Promise<{
-    identity: DashIdentity;
-    identityKey: unknown;
-    signer: unknown;
-  }>;
-  getFullSigner(): unknown;
-  getKeysInCreation(): Array<{
-    toIdentityPublicKey(): unknown;
-  }>;
-};
-
-export type DashAddressKeyManager = {
-  primaryAddress: {
-    bech32m: string;
-  };
-  getSigner(): unknown;
 };
 
 // ---------------------------------------------------------------------------

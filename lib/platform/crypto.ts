@@ -19,7 +19,7 @@ const PBKDF2_ITERATIONS = 200_000;
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
 
-function encode(s: string): Uint8Array {
+function encode(s: string): Uint8Array<ArrayBuffer> {
   return new TextEncoder().encode(s);
 }
 
@@ -27,17 +27,27 @@ function decode(b: Uint8Array): string {
   return new TextDecoder().decode(b);
 }
 
-function toBase64(buf: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
-function fromBase64(s: string): Uint8Array {
-  return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+/** Decodes base64 to a fresh ArrayBuffer-backed Uint8Array. */
+function fromBase64(s: string): Uint8Array<ArrayBuffer> {
+  const binary = atob(s);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    out[i] = binary.charCodeAt(i);
+  }
+  return out;
 }
 
 async function deriveKey(
   passphrase: string,
-  salt: Uint8Array,
+  salt: Uint8Array<ArrayBuffer>,
 ): Promise<CryptoKey> {
   const raw = await crypto.subtle.importKey(
     'raw',
@@ -79,7 +89,7 @@ export async function encryptMnemonic(
   combined.set(salt, 0);
   combined.set(iv, SALT_BYTES);
   combined.set(new Uint8Array(ciphertext), SALT_BYTES + IV_BYTES);
-  return toBase64(combined.buffer);
+  return toBase64(combined);
 }
 
 /**
@@ -92,9 +102,11 @@ export async function decryptMnemonic(
 ): Promise<string> {
   assertClientSide('decryptMnemonic');
   const combined = fromBase64(blob);
-  const salt = combined.slice(0, SALT_BYTES);
-  const iv = combined.slice(SALT_BYTES, SALT_BYTES + IV_BYTES);
-  const ciphertext = combined.slice(SALT_BYTES + IV_BYTES);
+  // new Uint8Array(...) copies each slice into an ArrayBuffer-backed view,
+  // which is what the Web Crypto API's BufferSource expects.
+  const salt = new Uint8Array(combined.subarray(0, SALT_BYTES));
+  const iv = new Uint8Array(combined.subarray(SALT_BYTES, SALT_BYTES + IV_BYTES));
+  const ciphertext = new Uint8Array(combined.subarray(SALT_BYTES + IV_BYTES));
   const key = await deriveKey(passphrase, salt);
   let plaintext: ArrayBuffer;
   try {
