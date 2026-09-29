@@ -8,13 +8,15 @@
  * This verifies a signature against a chain-sourced address WITHOUT any
  * private key — the "app verifies" half of the rule.
  *
- * CRITICAL: the prefix string must START WITH ITS LENGTH BYTE. Dash Core
- * serializes the magic as a compact-size string: varint(21) + the 21 bytes of
- * "Dash Signed Message:" + newline. bitcoinjs-message bakes that length byte
- * into the prefix (its Bitcoin default is \u0018 + "Bitcoin Signed Message:\n").
- * "Dash Signed Message:\n" is 21 chars = 0x15, so the prefix is
- * \u0015 + the text — without the 0x15 byte every real Dash Core signature
- * fails to verify (verified against Core's exact serialization).
+ * CRITICAL, learned the hard way: the prefix string must START WITH ITS
+ * LENGTH BYTE, and Dash Core's magic is still "DarkCoin Signed Message:\n"
+ * (dash src/util/message.cpp, MESSAGE_MAGIC) — the original 2014 DarkCoin
+ * name, kept for compatibility. It is NOT "Dash Signed Message:\n".
+ * Core serializes: varint(25) + the 25-byte magic + varint(len) + message,
+ * then double-SHA256. bitcoinjs-message bakes the length byte into the
+ * prefix (its Bitcoin default is \u0018 + "Bitcoin Signed Message:\n"), so the
+ * Dash prefix is \u0019 + "DarkCoin Signed Message:\n". Verified byte-exact
+ * against Core's MessageHash implementation.
  *
  * Client-side only. Never import from server components.
  */
@@ -22,9 +24,10 @@
 import { verify as verifySignedMessage } from 'bitcoinjs-message';
 import { assertClientSide } from '@/lib/platform/sdk-module';
 
-/** The message magic Dash Core's signmessage prefixes before hashing:
- * 0x15 = the compact-size length of the 21-byte magic string itself. */
-const DASH_MESSAGE_PREFIX = '\u0015Dash Signed Message:\n';
+/** The message magic Dash Core's signmessage prefixes before hashing (dash
+ * src/util/message.cpp: MESSAGE_MAGIC), WITH its compact-size length byte:
+ * 0x19 = 25 = byte length of "DarkCoin Signed Message:" + newline. */
+const DASH_MESSAGE_PREFIX = '\u0019DarkCoin Signed Message:\n';
 
 /**
  * Verifies a base64 signature produced by Dash Core's signmessage for the
@@ -44,7 +47,10 @@ export function verifyDashMessage(
       signatureBase64,
       DASH_MESSAGE_PREFIX,
     );
-  } catch {
+  } catch (err) {
+    // Surface the real cause (bad base64, missing Buffer shim, etc.) in the
+    // browser console instead of silently reporting a signature mismatch.
+    console.error('[govenr] signature verification error:', err);
     return false;
   }
 }
