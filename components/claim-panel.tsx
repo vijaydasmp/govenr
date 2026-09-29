@@ -39,6 +39,31 @@ type ClaimState =
   | 'claimed-by-you'
   | 'claimed-by-other';
 
+/**
+ * Extracts a readable message from anything the evo-sdk throws. The SDK's
+ * wasm errors (WasmDppError, WasmSdkError) have .message/.name getters but
+ * do NOT extend Error — the generic instanceof check loses their text.
+ */
+function describePlatformError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  const e = err as { message?: unknown; name?: unknown };
+  const message =
+    typeof e?.message === 'string' || typeof e?.message === 'number'
+      ? String(e.message)
+      : '';
+  if (message) {
+    const name = typeof e?.name === 'string' ? e.name : '';
+    return name ? `${name}: ${message}` : message;
+  }
+  try {
+    const json = JSON.stringify(err);
+    if (json && json !== '{}') return json;
+  } catch {
+    // not serializable
+  }
+  return 'Claim submission failed.';
+}
+
 export default function ClaimPanel({
   proposalHash,
   paymentAddress,
@@ -173,7 +198,7 @@ export default function ClaimPanel({
       setChallenge(null);
       setSignature('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Claim submission failed.');
+      setError(describePlatformError(err));
     } finally {
       setBusy(false);
     }

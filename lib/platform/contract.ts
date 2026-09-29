@@ -3,10 +3,14 @@
  *
  * Publishing and locating the Govenr data contract on Dash Platform testnet.
  *
- * The contract JSON (contracts/govenr-contract.json) ships with two
- * placeholders — $format_version and ownerId — which are filled
- * programmatically at publish time: ownerId becomes the logged-in identity,
- * $format_version is '1'. Publishing is one-time per owner identity.
+ * evo-sdk v4 note: DataContract.fromJSON expects the NEW Platform v1
+ * serialization ($formatVersion + documentSchemas), which our JSON (old
+ * dashpay-era documents naming) does not match. The correct way to build a
+ * NEW contract is `new DataContract({ ownerId, identityNonce, schemas,
+ * fullValidation })` — schemas are our per-document definitions verbatim
+ * (indices live inside each schema, which ours already do). identityNonce is
+ * the identity's current revision (the contract id derives from
+ * hash(ownerId, identityNonce)). Publishing is one-time per owner identity.
  *
  * Client-side only. Never import from server components.
  */
@@ -29,13 +33,15 @@ export function storeContractId(id: string): void {
   localStorage.setItem(KEY_CONTRACT_ID, id);
 }
 
-/** The Govenr contract JSON with both placeholders filled for this owner. */
-export function buildGovenrContract(identityId: string): unknown {
-  return {
-    ...contractJson,
-    ownerId: identityId,
-    $format_version: '1',
-  };
+/** The per-document schemas from the contract JSON, keyed by document type. */
+export function buildGovenrSchemas(): Record<string, object> {
+  const docs = (contractJson as { documents: Record<string, object> })
+    .documents;
+  const schemas: Record<string, object> = {};
+  for (const [name, schema] of Object.entries(docs)) {
+    schemas[name] = schema;
+  }
+  return schemas;
 }
 
 /**
@@ -51,6 +57,7 @@ export async function getSigningContext(
   mod: Awaited<ReturnType<typeof loadSdkModule>>;
   identityKey: unknown;
   signer: unknown;
+  identityRevision: bigint;
 }> {
   assertClientSide('getSigningContext');
   const mod = await loadSdkModule();
@@ -69,9 +76,10 @@ export async function getSigningContext(
       'The logged-in key is not registered to this identity. Sign in with a key that belongs to it.',
     );
   }
+  const identityRevision = BigInt(identity?.revision ?? 0n);
   const signer = new mod.IdentitySigner();
   signer.addKeyFromWif(wif);
-  return { mod, identityKey, signer };
+  return { mod, identityKey, signer, identityRevision };
 }
 
 /** Publishes the Govenr data contract to Platform testnet. One-time. */
@@ -82,18 +90,19 @@ export async function publishGovenrContract(
   onLog?: (msg: string) => void,
 ): Promise<string> {
   assertClientSide('publishGovenrContract');
-  const { mod, identityKey, signer } = await getSigningContext(
+  const { mod, identityKey, signer, identityRevision } = await getSigningContext(
     sdk,
     identityId,
     authKeyWif,
   );
 
   onLog?.('Building the Govenr data contract…');
-  const dataContract = mod.DataContract.fromJSON(
-    buildGovenrContract(identityId) as never,
-    false,
-    0,
-  );
+  const dataContract = new mod.DataContract({
+    ownerId: identityId,
+    identityNonce: identityRevision,
+    schemas: buildGovenrSchemas(),
+    fullValidation: true,
+  });
 
   onLog?.('Publishing the contract to Platform testnet (one-time)…');
   const published = await sdk.contracts.publish({

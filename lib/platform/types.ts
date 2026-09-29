@@ -17,6 +17,8 @@ export type DashIdentity = {
   id: { toString(): string };
   publicKeys?: Array<{ getPublicKeyHash(): string }>;
   balance?: number | bigint;
+  /** Identity revision — doubles as the nonce for contract creation. */
+  revision?: bigint;
 };
 
 /** Minimal shape of a Platform document as used by Govenr (read path). */
