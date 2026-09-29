@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@dashevo/evo-sdk": "4.1.1",
+    "bitcoinjs-message": "2.2.0",
     "next": "^15",
     "react": "^19",
     "react-dom": "^19"

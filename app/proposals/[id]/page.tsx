@@ -13,6 +13,7 @@ import StateBadge from '@/components/state-badge';
 import { dashWithSymbol } from '@/lib/format/dash';
 import { timeUntil } from '@/lib/format/dates';
 import Link from 'next/link';
+import ClaimPanel from '@/components/claim-panel';
 
 
 export const revalidate = 60;
@@ -86,6 +87,13 @@ export default async function ProposalDetailPage({ params }: Props) {
       >
         {proposal.hash}
       </p>
+
+      {/* Sign-to-own claim panel (client-side, Platform session) */}
+      <ClaimPanel
+        proposalHash={proposal.hash}
+        paymentAddress={proposal.paymentAddress}
+        collateralAddress={proposal.collateralAddress}
+      />
 
       {/* Placeholder for tabs — wired in a subsequent step */}
       <div

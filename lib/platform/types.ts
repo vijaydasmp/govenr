@@ -19,9 +19,39 @@ export type DashIdentity = {
   balance?: number | bigint;
 };
 
+/** Minimal shape of a Platform document as used by Govenr (read path). */
+export type PlatformDocument = {
+  id: { toString(): string };
+  ownerId: { toString(): string };
+  createdAt?: bigint;
+  properties: Record<string, unknown>;
+};
+
 /** Opaque handle to a connected EvoSDK instance. */
 export type DashSdk = {
   connect(): Promise<void>;
+  contracts: {
+    /** Fetches a data contract by id, or null/undefined if not found. */
+    fetch(contractId: string): Promise<unknown>;
+    publish(opts: {
+      dataContract: unknown;
+      identityKey: unknown;
+      signer: unknown;
+    }): Promise<{ id: { toString(): string } }>;
+  };
+  documents: {
+    query(opts: {
+      dataContractId: string;
+      documentTypeName: string;
+      where?: Array<[string, string, unknown]>;
+      limit?: number;
+    }): Promise<Map<string, PlatformDocument | undefined>>;
+    create(opts: {
+      document: unknown;
+      identityKey: unknown;
+      signer: unknown;
+    }): Promise<void>;
+  };
   identities: {
     /** Looks up an identity by master public key hash (hex string). */
     byPublicKeyHash(

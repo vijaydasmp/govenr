@@ -27,6 +27,7 @@ export interface DashGovernanceProposal {
   url: string;
 
   collateralHash?: string;
+  collateralAddress?: string;
   creationTime?: number;
 
   yesCount?: number;
@@ -46,6 +47,9 @@ interface InsightGovernanceProposal {
 
   CollateralHash?: string;
   collateralHash?: string;
+
+  CollateralAddress?: string;
+  collateralAddress?: string;
 
   CreationTime?: number;
   creationTime?: number;
@@ -177,6 +181,9 @@ function normalizeProposal(
 
     collateralHash:
       proposal.CollateralHash ?? proposal.collateralHash,
+
+    collateralAddress:
+      proposal.CollateralAddress ?? proposal.collateralAddress,
 
     creationTime:
       proposal.CreationTime ?? proposal.creationTime,

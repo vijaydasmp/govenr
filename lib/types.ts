@@ -33,6 +33,10 @@ export type Proposal = {
   hash: string;
   title: string;
   ownerHandle: string;
+  /** On-chain payout address (payment_address from the gobject) — claim anchor. */
+  paymentAddress: string | null;
+  /** Collateral (fee) address if the upstream exposes it — second claim anchor. */
+  collateralAddress: string | null;
   amountDash: number;
   isMonthly: boolean;
   paymentsRemaining: number;

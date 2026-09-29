@@ -103,6 +103,8 @@ const FETCH_TIMEOUT_MS = 10_000;
 // Raw shape coming back from the Insight API
 interface InsightProposal {
   Hash?: string;
+  CollateralHash?: string;
+  CollateralAddress?: string;
   DataObject?: {
     name?: string;
     payment_address?: string;
@@ -203,6 +205,8 @@ async function fetchTestnet(): Promise<MirrorResponse> {
           ownerHandle: d.payment_address
             ? `${d.payment_address.slice(0, 8)}…`
             : 'unknown',
+          paymentAddress: d.payment_address ?? null,
+          collateralAddress: item.CollateralAddress ?? null,
           amountDash,
           isMonthly: false,
           paymentsRemaining: 1,
@@ -319,6 +323,8 @@ async function fetchMainnet(): Promise<MirrorResponse> {
           hash,
           title: inner.name,
           ownerHandle: paymentAddress ? `${paymentAddress.slice(0, 8)}…` : 'unknown',
+          paymentAddress: paymentAddress || null,
+          collateralAddress: null, // RPC gobject collateral parsing: later story
           amountDash,
           isMonthly: false,
           paymentsRemaining: 1,
@@ -355,6 +361,8 @@ function fixtureResponse(): MirrorResponse {
     hash: p.hash,
     title: p.title,
     ownerHandle: p.ownerHandle,
+    paymentAddress: null,
+    collateralAddress: null,
     amountDash: p.amountDash,
     isMonthly: p.isMonthly,
     paymentsRemaining: p.paymentsRemaining,

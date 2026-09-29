@@ -381,3 +381,29 @@ function hexToBytes(hex: string): Uint8Array {
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Single-key derivation for mnemonic sessions
+// ---------------------------------------------------------------------------
+
+/**
+ * Derives the DIP-13 master key (WIF) for an identity from a mnemonic —
+ * the in-memory signing key for mnemonic-based sessions. Key-based sessions
+ * already hold their WIF in authKeyWif; this gives both session types the
+ * same signing capability for claims and documents.
+ */
+export async function deriveMasterKeyWif(
+  mnemonic: string,
+  network: NetworkName,
+  identityIndex = 0,
+): Promise<string> {
+  assertClientSide('deriveMasterKeyWif');
+  const mod = await loadSdkModule();
+  const path = await dip13KeyPath(network, identityIndex, 0);
+  const keyInfo = await mod.wallet.deriveKeyFromSeedWithPath({
+    mnemonic,
+    path,
+    network,
+  });
+  return keyInfo.toObject().privateKeyWif;
+}

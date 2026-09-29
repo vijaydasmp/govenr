@@ -23,7 +23,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from '@/lib/platform/session-context';
-import { createPlatformClient } from '@/lib/platform/client';
+import { createPlatformClient, NETWORK } from '@/lib/platform/client';
 import { encryptMnemonic, decryptMnemonic } from '@/lib/platform/crypto';
 import {
   saveEncryptedMnemonic,
@@ -44,6 +44,7 @@ import {
   shortHandle,
   loginWithKey,
 } from '@/lib/platform/identity';
+import { deriveMasterKeyWif } from '@/lib/platform/key-managers';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -159,7 +160,7 @@ function MonoInput({
 // ---------------------------------------------------------------------------
 
 function UnlockPanel({ onDone }: { onDone: () => void }) {
-  const { onLoginComplete, onStatusUpdate, setSdk, sdk: existingSdk } = useSession();
+  const { onLoginComplete, onStatusUpdate, setSdk, sdk: existingSdk, setAuthKeyWif } = useSession();
   const [passphrase, setPassphrase] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -188,6 +189,7 @@ function UnlockPanel({ onDone }: { onDone: () => void }) {
       const dpnsName = await resolveDpnsName(sdk, identityId);
       const handle = shortHandle(identityId, dpnsName);
       clearKeySessionIdentity(); // mnemonic session supersedes any key session
+      setAuthKeyWif(await deriveMasterKeyWif(mnemonic, NETWORK));
       onLoginComplete(identityId, handle);
       onDone();
     } catch (err) {
@@ -197,7 +199,7 @@ function UnlockPanel({ onDone }: { onDone: () => void }) {
       setBusy(false);
       setPassphrase('');
     }
-  }, [passphrase, existingSdk, onLoginComplete, onStatusUpdate, setSdk, onDone]);
+  }, [passphrase, existingSdk, onLoginComplete, onStatusUpdate, setSdk, setAuthKeyWif, onDone]);
 
   return (
     <div className="space-y-4">
@@ -289,7 +291,7 @@ function NewWalletSetupPanel({
   mnemonic: string;
   onComplete: () => void;
 }) {
-  const { onLoginComplete, onStatusUpdate, setSdk, sdk: existingSdk } = useSession();
+  const { onLoginComplete, onStatusUpdate, setSdk, sdk: existingSdk, setAuthKeyWif } = useSession();
   const [passphrase, setPassphrase] = useState('');
   const [confirm, setConfirm] = useState('');
   const [log, setLog] = useState<string[]>([]);
@@ -362,6 +364,7 @@ function NewWalletSetupPanel({
             const identityId = await registerIdentity(sdk, mnemonic, appendLog);
             saveIdentityId(identityId);
             clearKeySessionIdentity(); // fresh identity supersedes any key session
+            setAuthKeyWif(await deriveMasterKeyWif(mnemonic, NETWORK));
 
             const dpnsName = await resolveDpnsName(sdk, identityId);
             const handle = shortHandle(identityId, dpnsName);
@@ -398,6 +401,7 @@ function NewWalletSetupPanel({
     onLoginComplete,
     onStatusUpdate,
     setSdk,
+    setAuthKeyWif,
     onComplete,
   ]);
 
@@ -515,7 +519,7 @@ function NewWalletSetupPanel({
 // ---------------------------------------------------------------------------
 
 function ImportWalletPanel({ onDone }: { onDone: () => void }) {
-  const { onLoginComplete, onStatusUpdate, setSdk, sdk: existingSdk } = useSession();
+  const { onLoginComplete, onStatusUpdate, setSdk, sdk: existingSdk, setAuthKeyWif } = useSession();
   const [mnemonic, setMnemonic] = useState('');
   const [passphrase, setPassphrase] = useState('');
   const [busy, setBusy] = useState(false);
@@ -552,6 +556,7 @@ function ImportWalletPanel({ onDone }: { onDone: () => void }) {
       const dpnsName = await resolveDpnsName(sdk, identityId);
       const handle = shortHandle(identityId, dpnsName);
       clearKeySessionIdentity(); // mnemonic session supersedes any key session
+      setAuthKeyWif(await deriveMasterKeyWif(decrypted, NETWORK));
       onLoginComplete(identityId, handle);
       onDone();
     } catch (err) {
@@ -562,7 +567,7 @@ function ImportWalletPanel({ onDone }: { onDone: () => void }) {
       setMnemonic('');
       setPassphrase('');
     }
-  }, [mnemonic, passphrase, existingSdk, onLoginComplete, onStatusUpdate, setSdk, onDone]);
+  }, [mnemonic, passphrase, existingSdk, onLoginComplete, onStatusUpdate, setSdk, setAuthKeyWif, onDone]);
 
   return (
     <div className="space-y-4">
