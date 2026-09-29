@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { DM_Sans, Instrument_Serif, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import AppHeader from '@/components/app-header';
+import { SessionProvider } from '@/lib/platform/session-context';
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
@@ -40,8 +41,10 @@ export default function RootLayout({
       className={`${dmSans.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
     >
       <body>
-        <AppHeader />
-        <main>{children}</main>
+        <SessionProvider>
+          <AppHeader />
+          <main>{children}</main>
+        </SessionProvider>
       </body>
     </html>
   );

@@ -126,11 +126,6 @@ export type TipReceipt = {
 };
 
 // ---------------------------------------------------------------------------
-// Session (mock in v1)
+// Session — managed by lib/platform/session-context (real Platform identity)
+// The old mock Session type has been removed; see lib/platform/types.ts.
 // ---------------------------------------------------------------------------
-
-export type Session = {
-  identityHandle: string;
-  displayName: string;
-  balanceDash: number;
-};

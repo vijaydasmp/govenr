@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@dashevo/evo-sdk": "4.1.1",
     "next": "^15",
     "react": "^19",
     "react-dom": "^19"
