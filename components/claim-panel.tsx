@@ -56,7 +56,7 @@ export default function ClaimPanel({
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const appendLog = (msg: string) => setLog((prev) => [...prev.slice(-6), msg]);
 
@@ -113,11 +113,10 @@ export default function ClaimPanel({
     setLog([]);
   };
 
-  const copyChallenge = () => {
-    if (!challenge) return;
-    navigator.clipboard.writeText(challenge).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyText = (key: string, text: string) => {
+    navigator.clipboard.writeText(text).catch(() => {});
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
   };
 
   const anchors = [paymentAddress, collateralAddress].filter(
@@ -264,44 +263,56 @@ export default function ClaimPanel({
           Claim this proposal
         </p>
         <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
-          In Dash Core (testnet), open the Debug console and sign the message
-          below with the private key of <strong>either</strong> of the
-          proposal&apos;s on-chain addresses:
+          In Dash Core (testnet), open the Debug console and paste one of the
+          complete commands below (either address works), press Enter, then
+          copy the base64 signature it prints and paste it at the bottom.
+          <strong>Copy and paste only</strong> — one hand-typed character
+          fails verification. Do not refresh this page in between.
         </p>
-        {anchors.map((addr) => (
-          <p
-            key={addr}
-            className="font-mono text-xs break-all"
-            style={{ color: 'var(--text)' }}
-          >
-            {addr}
-          </p>
-        ))}
-        <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
-          Command:{' '}
-          <span style={{ color: 'var(--text)' }}>
-            {'signmessage "<address>" "<challenge>"'}
-          </span>
-        </p>
-        <div
-          className="rounded border p-3 space-y-2"
-          style={{
-            backgroundColor: 'var(--surface-dim)',
-            borderColor: 'var(--border-strong)',
-          }}
-        >
-          <p className="font-mono text-xs break-all" style={{ color: 'var(--text)' }}>
-            {challenge}
-          </p>
-          <button
-            type="button"
-            onClick={copyChallenge}
-            className="font-mono text-xs focus-visible:outline-none focus-visible:ring-1"
-            style={{ color: 'var(--l1)' }}
-          >
-            {copied ? 'Copied ✓' : 'Copy challenge'}
-          </button>
-        </div>
+        {[
+          paymentAddress
+            ? { label: 'payout address', addr: paymentAddress }
+            : null,
+          collateralAddress
+            ? { label: 'collateral (fee) address', addr: collateralAddress }
+            : null,
+        ]
+          .filter((b): b is { label: string; addr: string } => b !== null)
+          .map(({ label, addr }) => {
+            const cmd = 'signmessage "' + addr + '" "' + challenge + '"';
+            const copiedNow = copiedKey === label;
+            return (
+              <div
+                key={label}
+                className="rounded border p-3 space-y-2"
+                style={{
+                  backgroundColor: 'var(--surface-dim)',
+                  borderColor: 'var(--border-strong)',
+                }}
+              >
+                <p
+                  className="font-mono text-xs tracking-widest uppercase"
+                  style={{ color: 'var(--text-dim)' }}
+                >
+                  {label}
+                </p>
+                <p
+                  className="font-mono text-xs break-all"
+                  style={{ color: 'var(--text)' }}
+                >
+                  {cmd}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => copyText(label, cmd)}
+                  className="font-mono text-xs focus-visible:outline-none focus-visible:ring-1"
+                  style={{ color: 'var(--l1)' }}
+                >
+                  {copiedNow ? 'Copied ✓' : 'Copy full command'}
+                </button>
+              </div>
+            );
+          })}
         <div className="space-y-1">
           <label
             className="font-mono text-xs"
