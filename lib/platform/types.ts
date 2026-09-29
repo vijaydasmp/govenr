@@ -15,7 +15,13 @@
 /** Minimal shape of an on-chain identity as used by Govenr. */
 export type DashIdentity = {
   id: { toString(): string };
-  publicKeys?: Array<{ getPublicKeyHash(): string }>;
+  publicKeys?: Array<{
+    getPublicKeyHash(): string;
+    /** Key purpose, e.g. AUTHENTICATION (enum value or name). */
+    purpose?: unknown;
+    /** Key security level, e.g. HIGH (enum value or name). */
+    securityLevel?: unknown;
+  }>;
   balance?: number | bigint;
   /** Identity revision — doubles as the nonce for contract creation. */
   revision?: bigint;

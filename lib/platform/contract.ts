@@ -16,6 +16,7 @@
  */
 
 import { assertClientSide, loadSdkModule } from '@/lib/platform/sdk-module';
+import { assertSigningKey } from '@/lib/platform/identity';
 import type { DashSdk } from '@/lib/platform/types';
 import contractJson from '@/contracts/govenr-contract.json';
 
@@ -75,6 +76,7 @@ export async function getSigningContext(
       'The logged-in key is not registered to this identity. Sign in with a key that belongs to it.',
     );
   }
+  assertSigningKey(identityKey);
   const signer = new mod.IdentitySigner();
   signer.addKeyFromWif(wif);
   return { mod, identityKey, signer };

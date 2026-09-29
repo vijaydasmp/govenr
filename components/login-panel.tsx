@@ -44,7 +44,7 @@ import {
   shortHandle,
   loginWithKey,
 } from '@/lib/platform/identity';
-import { deriveMasterKeyWif } from '@/lib/platform/key-managers';
+import { deriveHighAuthKeyWif } from '@/lib/platform/key-managers';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -189,7 +189,7 @@ function UnlockPanel({ onDone }: { onDone: () => void }) {
       const dpnsName = await resolveDpnsName(sdk, identityId);
       const handle = shortHandle(identityId, dpnsName);
       clearKeySessionIdentity(); // mnemonic session supersedes any key session
-      setAuthKeyWif(await deriveMasterKeyWif(mnemonic, NETWORK));
+      setAuthKeyWif(await deriveHighAuthKeyWif(mnemonic, NETWORK));
       onLoginComplete(identityId, handle);
       onDone();
     } catch (err) {
@@ -364,7 +364,7 @@ function NewWalletSetupPanel({
             const identityId = await registerIdentity(sdk, mnemonic, appendLog);
             saveIdentityId(identityId);
             clearKeySessionIdentity(); // fresh identity supersedes any key session
-            setAuthKeyWif(await deriveMasterKeyWif(mnemonic, NETWORK));
+            setAuthKeyWif(await deriveHighAuthKeyWif(mnemonic, NETWORK));
 
             const dpnsName = await resolveDpnsName(sdk, identityId);
             const handle = shortHandle(identityId, dpnsName);
@@ -556,7 +556,7 @@ function ImportWalletPanel({ onDone }: { onDone: () => void }) {
       const dpnsName = await resolveDpnsName(sdk, identityId);
       const handle = shortHandle(identityId, dpnsName);
       clearKeySessionIdentity(); // mnemonic session supersedes any key session
-      setAuthKeyWif(await deriveMasterKeyWif(decrypted, NETWORK));
+      setAuthKeyWif(await deriveHighAuthKeyWif(decrypted, NETWORK));
       onLoginComplete(identityId, handle);
       onDone();
     } catch (err) {
@@ -693,8 +693,10 @@ function KeyLoginPanel({
       </h2>
       <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
         Govenr uses your Dash Platform testnet identity for comments, reviews,
-        and tips. Your keys stay in your browser — nothing is sent to any
-        server.
+        and tips. Sign in with an authentication key — the High Auth or
+        Critical Auth key from your identity export. The Master key cannot
+        sign documents. Your keys stay in your browser — nothing is sent to
+        any server.
       </p>
       <MonoInput
         label="Dash username or identity ID"
@@ -714,7 +716,7 @@ function KeyLoginPanel({
             type={showKey ? 'text' : 'password'}
             value={privateKey}
             onChange={(e) => setPrivateKey(e.target.value)}
-            placeholder="Your identity key (WIF)"
+            placeholder="High Auth or Critical Auth key (WIF)"
             className="w-full rounded border px-3 py-2 font-mono text-xs focus:outline-none focus-visible:ring-2"
             style={{
               backgroundColor: 'var(--surface)',

@@ -198,14 +198,69 @@ export async function resolveDpnsName(
 // Key-based login (yappr-style)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Signing-key validation
+// ---------------------------------------------------------------------------
+
+/** Purpose enum order in the SDK (Purpose.AUTHENTICATION = 0, ...). */
+const PURPOSE_ORDER = [
+  'AUTHENTICATION',
+  'ENCRYPTION',
+  'DECRYPTION',
+  'TRANSFER',
+  'SYSTEM',
+  'VOTING',
+  'OWNER',
+];
+
+/** SecurityLevel enum order in the SDK (MASTER = 0, ...). */
+const SECURITY_LEVEL_ORDER = ['MASTER', 'CRITICAL', 'HIGH', 'MEDIUM'];
+
+/** Normalizes an SDK enum value (number or string) to its uppercase name. */
+function enumName(value: unknown, order: string[]): string {
+  if (typeof value === 'number' && Number.isInteger(value)) {
+    return order[value] ?? String(value);
+  }
+  return String(value ?? '').toUpperCase();
+}
+
+/**
+ * Throws a descriptive error unless the key can sign state transitions
+ * (contract publishes, documents): Dash Platform requires purpose
+ * AUTHENTICATION and security level CRITICAL or HIGH. The Master key
+ * (identity updates only) and encryption/transfer keys are rejected.
+ */
+export function assertSigningKey(key: {
+  purpose?: unknown;
+  securityLevel?: unknown;
+}): void {
+  const purpose = enumName(key.purpose, PURPOSE_ORDER);
+  const level = enumName(key.securityLevel, SECURITY_LEVEL_ORDER);
+  if (purpose === 'AUTHENTICATION' && (level === 'CRITICAL' || level === 'HIGH')) {
+    return;
+  }
+  if (level === 'MASTER') {
+    throw new Error(
+      'That is your Master key — it can update your identity but cannot sign ' +
+        'documents or contracts. Sign in with your High Auth or Critical Auth ' +
+        'key (key id 1 or 2 in your identity export, e.g. "High Auth").',
+    );
+  }
+  throw new Error(
+    `That key is a ${level} ${purpose} key — Govenr signs documents with a ` +
+      'High or Critical authentication key. Use the "High Auth" or ' +
+      '"Critical Auth" key from your identity export.',
+  );
+}
+
 /**
  * Sign in with a Dash username (DPNS name) or identity ID plus one private
  * key (WIF) registered to that identity — the same pattern yappr uses.
  *
  * Only the single key is involved; the recovery phrase is never needed.
  * The key is verified against the identity's registered public keys
- * on-chain, so any key registered to the identity works (High, Critical,
- * or Master).
+ * on-chain and must be an authentication key of security level HIGH or
+ * CRITICAL (the Master key cannot sign state transitions).
  */
 export async function loginWithKey(
   sdk: DashSdk,
@@ -261,14 +316,15 @@ export async function loginWithKey(
     );
   }
 
-  const registered = (identity.publicKeys ?? []).map((k) =>
-    k.getPublicKeyHash().toLowerCase(),
+  const matchedKey = (identity.publicKeys ?? []).find(
+    (k) => k.getPublicKeyHash().toLowerCase() === pubKeyHash,
   );
-  if (!registered.includes(pubKeyHash)) {
+  if (!matchedKey) {
     throw new Error(
       'That private key does not match any key registered to this identity.',
     );
   }
+  assertSigningKey(matchedKey);
 
   const dpnsName = typedName ?? (await resolveDpnsName(sdk, identityId));
   return { identityId: identity.id.toString(), dpnsName };

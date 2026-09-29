@@ -407,3 +407,26 @@ export async function deriveMasterKeyWif(
   });
   return keyInfo.toObject().privateKeyWif;
 }
+
+/**
+ * Derives the HIGH security-level AUTHENTICATION key (key id 1) as a WIF.
+ * This is the session signing key: Dash Platform state transitions
+ * (contract publishes, documents) require an authentication key of
+ * security level CRITICAL or HIGH — the master key (id 0) is rejected
+ * with "Invalid public key security level MASTER".
+ */
+export async function deriveHighAuthKeyWif(
+  mnemonic: string,
+  network: NetworkName,
+  identityIndex = 0,
+): Promise<string> {
+  assertClientSide('deriveHighAuthKeyWif');
+  const mod = await loadSdkModule();
+  const path = await dip13KeyPath(network, identityIndex, 1);
+  const keyInfo = await mod.wallet.deriveKeyFromSeedWithPath({
+    mnemonic,
+    path,
+    network,
+  });
+  return keyInfo.toObject().privateKeyWif;
+}
