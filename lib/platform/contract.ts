@@ -20,7 +20,10 @@ import { assertSigningKey } from '@/lib/platform/identity';
 import type { DashSdk } from '@/lib/platform/types';
 import contractJson from '@/contracts/govenr-contract.json';
 
-const KEY_CONTRACT_ID = 'govenr:platform:v1:contractid';
+// v2: the all-string schema (hashes as 44-char base64). Bumping the key
+// forces a fresh contract publish under the new schema — the v1 byteArray
+// schema contract stays on-chain but is no longer used.
+const KEY_CONTRACT_ID = 'govenr:platform:v2:contractid';
 
 /** The stored data contract id, or null if never published on this device. */
 export function getStoredContractId(): string | null {

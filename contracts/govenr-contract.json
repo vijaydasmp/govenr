@@ -34,12 +34,11 @@
       ],
       "properties": {
         "proposalHash": {
-          "type": "array",
-          "byteArray": true,
-          "minItems": 32,
-          "maxItems": 32,
+          "type": "string",
+          "minLength": 44,
+          "maxLength": 44,
           "position": 0,
-          "description": "L1 governance object hash this content belongs to (raw 32 bytes)"
+          "description": "L1 governance object hash this content belongs to (raw 32 bytes) — base64 of the 32 raw bytes (44 chars)"
         },
         "title": {
           "type": "string",
@@ -55,18 +54,16 @@
           "position": 2
         },
         "milestones": {
-          "type": "array",
-          "byteArray": true,
-          "maxItems": 4096,
+          "type": "string",
+          "maxLength": 4096,
           "position": 3,
-          "description": "Deliverables or milestones as newline-separated lines, UTF-8 encoded bytes"
+          "description": "Deliverables or milestones, one per line"
         },
         "reportRefs": {
-          "type": "array",
-          "byteArray": true,
-          "maxItems": 4096,
+          "type": "string",
+          "maxLength": 4096,
           "position": 4,
-          "description": "References to delivery reports (URLs or document ids), newline-separated, UTF-8 encoded bytes"
+          "description": "References to delivery reports (URLs or document ids), one per line"
         }
       },
       "required": [
@@ -102,12 +99,11 @@
       ],
       "properties": {
         "proposalHash": {
-          "type": "array",
-          "byteArray": true,
-          "minItems": 32,
-          "maxItems": 32,
+          "type": "string",
+          "minLength": 44,
+          "maxLength": 44,
           "position": 0,
-          "description": "L1 governance object hash being claimed (raw 32 bytes)"
+          "description": "L1 governance object hash being claimed (raw 32 bytes) — base64 of the 32 raw bytes (44 chars)"
         },
         "verifiedAddress": {
           "type": "string",
@@ -157,12 +153,11 @@
       ],
       "properties": {
         "proposalHash": {
-          "type": "array",
-          "byteArray": true,
-          "minItems": 32,
-          "maxItems": 32,
+          "type": "string",
+          "minLength": 44,
+          "maxLength": 44,
           "position": 0,
-          "description": "L1 governance object hash being discussed (raw 32 bytes)"
+          "description": "L1 governance object hash being discussed (raw 32 bytes) — base64 of the 32 raw bytes (44 chars)"
         },
         "body": {
           "type": "string",
@@ -214,12 +209,11 @@
       ],
       "properties": {
         "proposalHash": {
-          "type": "array",
-          "byteArray": true,
-          "minItems": 32,
-          "maxItems": 32,
+          "type": "string",
+          "minLength": 44,
+          "maxLength": 44,
           "position": 0,
-          "description": "L1 governance object hash being reviewed (raw 32 bytes)"
+          "description": "L1 governance object hash being reviewed (raw 32 bytes) — base64 of the 32 raw bytes (44 chars)"
         },
         "stance": {
           "type": "string",
@@ -277,12 +271,12 @@
       ],
       "properties": {
         "docRef": {
-          "type": "array",
-          "byteArray": true,
-          "minItems": 1,
-          "maxItems": 96,
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^(review|comment):[A-Za-z0-9_-]{1,58}$",
           "position": 0,
-          "description": "What was tipped, as '<type>:<documentId>' (UTF-8 bytes)"
+          "description": "What was tipped, as '<type>:<documentId>'"
         },
         "toId": {
           "type": "string",
@@ -298,12 +292,11 @@
           "position": 2
         },
         "txid": {
-          "type": "array",
-          "byteArray": true,
-          "minItems": 32,
-          "maxItems": 32,
+          "type": "string",
+          "minLength": 44,
+          "maxLength": 44,
           "position": 3,
-          "description": "L1 transaction id of the payment (raw 32 bytes)"
+          "description": "L1 transaction id of the payment — base64 of the 32 raw bytes (44 chars)"
         }
       },
       "required": [
