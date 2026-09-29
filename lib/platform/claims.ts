@@ -17,18 +17,19 @@ import { assertClientSide } from '@/lib/platform/sdk-module';
 import { getSigningContext } from '@/lib/platform/contract';
 import type { DashSdk } from '@/lib/platform/types';
 
-/** Hex string -> base64. ByteArray document properties cross the evo-sdk
- * wasm boundary as base64 strings (see the official dashproof-lab example:
- * `entryHash: bytesToBase64(...)` and the same form in query where-values) —
- * passing a Uint8Array directly serializes wrongly and the drive rejects the
- * document with "structure error: not an array of bytes". */
-function hexToBase64(hex: string): string {
+/** Hex string -> plain array of byte numbers. ByteArray document properties
+ * cross the evo-sdk wasm boundary as PLAIN ARRAYS of numbers — mirroring the
+ * official dashproof-lab example's `bytesToDocumentArray` (Array.from(bytes))
+ * used for its byteArray `previousId` field. A Uint8Array serializes wrongly
+ * ("structure error: not an array of bytes") and a base64 string stays a
+ * string ("is not of type \"array\"") — only the plain number array validates. */
+function hexToByteArray(hex: string): number[] {
   const clean = hex.trim().toLowerCase();
-  let binary = '';
+  const out: number[] = [];
   for (let i = 0; i < clean.length; i += 2) {
-    binary += String.fromCharCode(parseInt(clean.slice(i, i + 2), 16));
+    out.push(parseInt(clean.slice(i, i + 2), 16));
   }
-  return btoa(binary);
+  return out;
 }
 
 /** A fresh challenge: govenr-claim:<proposalHash>:<identityId>:<nonce>. */
@@ -68,9 +69,9 @@ export async function submitClaim(
   );
   const document = new mod.Document({
     properties: {
-      // Schema v1: indexed hash fields are byte arrays — base64 at the
-      // wasm boundary (see hexToBase64).
-      proposalHash: hexToBase64(opts.proposalHash),
+      // Schema v1: indexed hash fields are byte arrays — plain number
+      // arrays at the wasm boundary (see hexToByteArray).
+      proposalHash: hexToByteArray(opts.proposalHash),
       verifiedAddress: opts.verifiedAddress,
       challenge: opts.challenge,
       signature: opts.signature,
@@ -102,7 +103,7 @@ export async function fetchClaimForProposal(
     const results = await sdk.documents.query({
       dataContractId: contractId,
       documentTypeName: 'claim',
-      where: [['proposalHash', '==', hexToBase64(proposalHash)]],
+      where: [['proposalHash', '==', hexToByteArray(proposalHash)]],
       limit: 1,
     });
     for (const doc of results.values()) {
