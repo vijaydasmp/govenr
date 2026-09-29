@@ -38,7 +38,7 @@
           "minLength": 44,
           "maxLength": 44,
           "position": 0,
-          "description": "L1 governance object hash this content belongs to (raw 32 bytes) — base64 of the 32 raw bytes (44 chars)"
+          "description": "L1 governance object hash this content belongs to (raw 32 bytes) \u2014 base64 of the 32 raw bytes (44 chars)"
         },
         "title": {
           "type": "string",
@@ -49,7 +49,7 @@
         },
         "body": {
           "type": "string",
-          "maxLength": 20000,
+          "maxLength": 16000,
           "description": "Full proposal description, markdown",
           "position": 2
         },
@@ -103,7 +103,7 @@
           "minLength": 44,
           "maxLength": 44,
           "position": 0,
-          "description": "L1 governance object hash being claimed (raw 32 bytes) — base64 of the 32 raw bytes (44 chars)"
+          "description": "L1 governance object hash being claimed (raw 32 bytes) \u2014 base64 of the 32 raw bytes (44 chars)"
         },
         "verifiedAddress": {
           "type": "string",
@@ -157,7 +157,7 @@
           "minLength": 44,
           "maxLength": 44,
           "position": 0,
-          "description": "L1 governance object hash being discussed (raw 32 bytes) — base64 of the 32 raw bytes (44 chars)"
+          "description": "L1 governance object hash being discussed (raw 32 bytes) \u2014 base64 of the 32 raw bytes (44 chars)"
         },
         "body": {
           "type": "string",
@@ -213,7 +213,7 @@
           "minLength": 44,
           "maxLength": 44,
           "position": 0,
-          "description": "L1 governance object hash being reviewed (raw 32 bytes) — base64 of the 32 raw bytes (44 chars)"
+          "description": "L1 governance object hash being reviewed (raw 32 bytes) \u2014 base64 of the 32 raw bytes (44 chars)"
         },
         "stance": {
           "type": "string",
@@ -243,7 +243,7 @@
     },
     "tipReceipt": {
       "type": "object",
-      "description": "Public receipt for a DASH tip sent to a review or comment. The payment itself moves on L1 (InstantSend); this document is the visible, queryable record — tips as public signal, not private transfers. $ownerId is the tipper.",
+      "description": "Public receipt for a DASH tip sent to a review or comment. The payment itself moves on L1 (InstantSend); this document is the visible, queryable record \u2014 tips as public signal, not private transfers. $ownerId is the tipper.",
       "indices": [
         {
           "name": "ownerTx",
@@ -296,7 +296,7 @@
           "minLength": 44,
           "maxLength": 44,
           "position": 3,
-          "description": "L1 transaction id of the payment — base64 of the 32 raw bytes (44 chars)"
+          "description": "L1 transaction id of the payment \u2014 base64 of the 32 raw bytes (44 chars)"
         }
       },
       "required": [

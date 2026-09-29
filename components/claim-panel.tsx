@@ -193,25 +193,11 @@ export default function ClaimPanel({
   // ------------------------------------------------------------------
 
   // Claimed by you — the door to editing (S9c placeholder for now).
+  // Claimed by the session identity: no box needed — the proposal content
+  // panel below already tells the owner "You own this proposal" and offers
+  // the editor. The claim evidence stays on-chain either way.
   if (claimState === 'claimed-by-you') {
-    return (
-      <div
-        className="rounded-lg border px-6 py-4 space-y-1"
-        style={{ backgroundColor: 'var(--gold-dim)', borderColor: 'var(--gold)' }}
-        aria-live="polite"
-      >
-        <p
-          className="font-mono text-xs font-semibold tracking-widest uppercase"
-          style={{ color: 'var(--gold)' }}
-        >
-          Claimed by you
-        </p>
-        <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
-          You own this proposal. Write its description and milestones below —
-          the text lives on Dash Platform as documents you control.
-        </p>
-      </div>
-    );
+    return null;
   }
 
   // Claimed by someone else.

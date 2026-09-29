@@ -118,7 +118,7 @@ export default function ProposalContentPanel({
       return;
     }
     if (body.length > 20000) {
-      setError('Description must be at most 20,000 characters.');
+      setError('Description must be at most 16,000 characters (Platform caps strings at 16,383).');
       return;
     }
     if (milestones.length > 4096 || reportRefs.length > 4096) {
@@ -213,7 +213,7 @@ export default function ProposalContentPanel({
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            maxLength={20000}
+            maxLength={16000}
             rows={10}
             className="w-full rounded border px-3 py-2 font-mono text-xs focus:outline-none focus-visible:ring-2"
             style={inputStyle}
