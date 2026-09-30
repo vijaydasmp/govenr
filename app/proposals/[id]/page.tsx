@@ -17,6 +17,7 @@ import ClaimPanel from '@/components/claim-panel';
 import ProposalContentPanel from '@/components/proposal-content-panel';
 import ProposalDisplayTitle from '@/components/proposal-display-title';
 import VoteCtaPanel from '@/components/vote-cta-panel';
+import DiscussionPanel from '@/components/discussion-panel';
 import ProposalOwnerByline from '@/components/proposal-owner-byline';
 
 
@@ -112,6 +113,10 @@ export default async function ProposalDetailPage({ params }: Props) {
       {/* The action bar: copy the official vote command for your
           masternode's Dash Core console — Govenr itself stays read-only. */}
       <VoteCtaPanel proposalHash={proposal.hash} />
+
+      {/* The discussion — comments as Platform documents owned by their
+          authors. Anyone can read; signed-in identities can post. */}
+      <DiscussionPanel proposalHash={proposal.hash} />
     </div>
   );
 }

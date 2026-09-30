@@ -54,6 +54,7 @@ export type DashSdk = {
       dataContractId: string;
       documentTypeName: string;
       where?: Array<[string, string, unknown]>;
+      orderBy?: Array<[string, string]>;
       limit?: number;
     }): Promise<Map<string, PlatformDocument | undefined>>;
     create(opts: {
