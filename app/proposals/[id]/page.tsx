@@ -1,17 +1,15 @@
 /**
  * app/proposals/[id]/page.tsx — Proposal detail page
  *
- * v1 stub: resolves the proposal by id/hash from the mirror and renders
- * the title and basic metadata. Tabbed content (Overview, Discussion,
- * Reviews, Votes) is wired in a subsequent step.
+ * DashCentral order: header → case file (facts) → the voting panel →
+ * claim → description → discussion. The reader decides with the numbers
+ * in view; the reasoning follows.
  */
 
 import { notFound } from 'next/navigation';
 import { fetchProposals } from '@/lib/mirror/proposal-mirror';
 import VoteBar from '@/components/vote-bar';
 import StateBadge from '@/components/state-badge';
-import { dashWithSymbol } from '@/lib/format/dash';
-import { timeUntil } from '@/lib/format/dates';
 import Link from 'next/link';
 import ClaimPanel from '@/components/claim-panel';
 import ProposalContentPanel from '@/components/proposal-content-panel';
@@ -19,6 +17,7 @@ import ProposalDisplayTitle from '@/components/proposal-display-title';
 import VoteCtaPanel from '@/components/vote-cta-panel';
 import DiscussionPanel from '@/components/discussion-panel';
 import ProposalOwnerByline from '@/components/proposal-owner-byline';
+import ProposalFacts from '@/components/proposal-facts';
 
 
 export const revalidate = 60;
@@ -72,17 +71,6 @@ export default async function ProposalDetailPage({ params }: Props) {
             l1Handle={proposal.ownerHandle}
             proposalHash={proposal.hash}
           />
-          <span style={{ color: 'var(--text)' }}>
-            {dashWithSymbol(proposal.amountDash)}
-            {proposal.isMonthly && (
-              <span style={{ color: 'var(--text-dim)' }}>
-                {' '}× {proposal.paymentsRemaining}mo
-              </span>
-            )}
-          </span>
-          {proposal.votingDeadline && (
-            <span>deadline {timeUntil(proposal.votingDeadline)}</span>
-          )}
           <StateBadge state={proposal.state} zeroVotes={zeroVotes} />
         </div>
 
@@ -90,13 +78,12 @@ export default async function ProposalDetailPage({ params }: Props) {
         <VoteBar votes={proposal.votes} className="max-w-md" />
       </div>
 
-      {/* Hash */}
-      <p
-        className="font-mono text-xs break-all"
-        style={{ color: 'var(--text-dim)' }}
-      >
-        {proposal.hash}
-      </p>
+      {/* The case file — every number live from L1 */}
+      <ProposalFacts proposal={proposal} />
+
+      {/* The voting panel — with the facts, before the description
+          (DashCentral order: decide first, read after) */}
+      <VoteCtaPanel proposalHash={proposal.hash} />
 
       {/* Sign-to-own claim panel (client-side, Platform session) */}
       <ClaimPanel
@@ -109,10 +96,6 @@ export default async function ProposalDetailPage({ params }: Props) {
           Platform, rendered for everyone. Discussion/Reviews/Votes come
           in a later step. */}
       <ProposalContentPanel proposalHash={proposal.hash} />
-
-      {/* The action bar: copy the official vote command for your
-          masternode's Dash Core console — Govenr itself stays read-only. */}
-      <VoteCtaPanel proposalHash={proposal.hash} />
 
       {/* The discussion — comments as Platform documents owned by their
           authors. Anyone can read; signed-in identities can post. */}
