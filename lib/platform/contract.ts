@@ -28,14 +28,22 @@ const KEY_CONTRACT_ID = 'govenr:platform:v3:contractid';
 /** The stored data contract id, or null if never published on this device. */
 /**
  * The live Govenr contract on testnet, used when this browser has none
- * stored (a fresh visitor). Paste the v3 contract id once — in the
- * browser console:
+ * stored — i.e. every first-time visitor. This is what makes proposal
+ * content, titles and claims readable WITHOUT signing in.
+ *
+ * Configure it one of two ways:
+ *   1. Environment (recommended for deploys): set
+ *      NEXT_PUBLIC_GOVENR_CONTRACT_ID in Vercel → Settings →
+ *      Environment Variables (and in .env.local for local dev), or
+ *   2. Paste the id into the fallback string below.
+ *
+ * How to read the id from a browser that published it:
  *   localStorage.getItem('govenr:platform:v3:contractid')
- * or copy it from the platform explorer's Data contracts table. Every
- * visitor then reads claims and content without having claimed anything
- * themselves. Leave empty to keep per-browser discovery only.
+ * or copy it from the Platform explorer's Data contracts table.
  */
-export const KNOWN_DEMO_CONTRACT_ID = '';
+export const KNOWN_DEMO_CONTRACT_ID =
+  process.env.NEXT_PUBLIC_GOVENR_CONTRACT_ID ??
+  '8EwaSu9QiTCcJdhkfAtuWhFGZPve7NhqJV2NmipRgcuJ';
 
 export function getStoredContractId(): string | null {
   assertClientSide('getStoredContractId');
