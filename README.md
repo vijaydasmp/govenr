@@ -1,57 +1,93 @@
-# Govenr — Governance App on Dash Platform · Starter Kit
+# Govenr
 
-**Name: Govenr** — rhymes with yappr and pollr, the ecosystem's naming line. A standalone, open-source governance app on Dash
-Platform. Two chains, two jobs: **L1 records the vote (read-only mirror);
-Platform remembers why (content, discussion, reviews, tips).**
+**L1 records the vote; Platform remembers why.**
 
-This kit contains everything Kiro needs to scaffold and build v1 in a
-GitHub Codespace. v1 ships with **zero chain writes** (services backed by
-fixtures + localStorage, with the on-chain v2 swap points designed in) —
-the same discipline that shipped Missing Block.
+An open-source governance reader and authoring surface for Dash, where the
+proposal document itself — rich text, images, video embeds, milestones,
+report references — lives as a **Dash Platform document under the proposal
+owner's own identity**. Editable by the owner, readable by everyone, held by
+no server.
 
----
+- **Demo (testnet):** (REPLACE: https://…)
+- **Pre-proposal discussion:** (REPLACE: Dash Forum thread URL)
+- **Status:** Stage 1 — testnet, single maintainer, under active development.
 
-## Kit contents
+## Why
 
+A Dash governance proposal today is two things: an on-chain object with a
+title, an amount, and a link — and, somewhere else, the actual proposal.
+That "somewhere else" is a server. Forum software, a portal, a spreadsheet.
+Often good ones, run by good people — but infrastructure the DAO does not
+govern, cannot audit, and would lose if it went away.
+
+Govenr stores the DAO's memory where it records its decisions: on-chain.
+
+The vote stays on L1, untouched. Masternodes vote with their own Core,
+exactly as now. Govenr reads the tally and shows it.
+
+## What it does
+
+- **Magazine hub** — all proposals with live tallies, states, cycle facts.
+- **Proposal case file** — payment window, amounts, owner claim, milestones,
+  report references.
+- **Authoring** — markdown editor with live preview, image carousels,
+  video embeds. The document is stored as a Platform document owned by
+  the proposal's claimed identity.
+- **Claim ceremony** — the proposal owner proves control of the on-chain
+  payment address (payout or collateral key) to bind the gobject to their
+  Platform identity. The proof is stored so anyone can re-verify it
+  independently against chain data.
+- **Discussion** — per-proposal comments as Platform documents.
+
+## What this is not (on purpose)
+
+- **Not a wallet, not a custodian.** No funds, no key custody beyond your
+  own tab's session for signing claims.
+- **Not a vote caster.** L1's governance is never touched.
+- **Not finished.** Single maintainer, testnet-stage, deliberately
+  documented gaps. The vote-verification ceremony for masternodes
+  (challenge-based signing, key never leaves Core) is designed and
+  crypto-proven in PoC, not yet in the app.
+
+## Run it
+
+```bash
+git clone (REPLACE: repo URL)
+cd govenr
+npm install
+npm run dev
 ```
-.devcontainer/devcontainer.json     Codespaces definition (Node 20, port 3000)
-contracts/govenr-contract.json      v2 data contract (4 document types)
-fixtures/proposals.testnet.json    Seed data: live-cycle proposals, tallies,
-                                   comments, reviews — so v1 works before
-                                   any chain connection exists
-.kiro/steering/product.md          What Govenr is — scope rules, hard limits
-.kiro/steering/tech.md             Stack, SDK, DAPI, service-swap pattern
-.kiro/steering/structure.md        Repo layout conventions
-.kiro/specs/govenr-v1/requirements.md   EARS-format requirements for v1
-.kiro/specs/govenr-v1/design.md          Architecture + the Task 0 spike
-.kiro/specs/govenr-v1/tasks.md           Build order (run spike first!)
-README.md                          This file
-```
 
-## Quick start (GitHub Codespaces + Kiro)
+Or open it in a GitHub Codespace (Node 20, port 3000 — devcontainer
+included). Reads live testnet governance data; a fixture file seeds the
+hub when chain data is unavailable.
 
-1. Create a new **empty** GitHub repository (suggested name: `govenr`).
-2. Upload this kit's files to the repo root (preserving paths — `.kiro/`
-   and `.devcontainer/` must keep their dot-prefix folders).
-3. Repo → **Code → Codespaces → Create codespace on main**.
-4. Open the Kiro agent. It reads `.kiro/steering/*` automatically as
-   always-on context.
-5. Point Kiro at the spec: **"Build `.kiro/specs/govenr-v1/tasks.md` —
-   start with Task 0."**
-6. Preview at `http://localhost:3000`.
+## Repository
 
-## The one non-negotiable rule
+- `app/` — Next.js App Router pages
+- `components/` — hub, proposal page, claim/login panels, markdown view
+- `lib/platform/` — identity, key managers, Platform document reads/writes
+- `lib/mirror/` — L1 governance object mirroring (read-only)
+- `contracts/` — the Platform data contract definition (4 document types)
+- `fixtures/` — seed data for offline/dev mode
+- `scripts/` — testnet helpers (proposal generator; testnet-only by design,
+  refuses mainnet)
 
-**The L1 chain is read-only for this app.** Govenr mirrors proposals and
-tallies; it never casts votes, never touches masternode keys, never
-re-implements governance. The chain stays the sole authority on what
-passed. Any change that writes to L1 or holds user keys is out of scope —
-reject it.
+## Relationship to DashCentral
 
-## Lineage
+DashCentral has served this DAO for years and remains actively maintained
+today — Govenr is not a "DashCentral is broken" project, because it isn't
+broken. The case is architectural, not about uptime or effort: the DAO's
+document layer deserves the same property as its money — on-chain, owned by
+the network, outliving any single service, no matter how well run. The
+document format is open and Platform-native; anyone — DashCentral included
+— is welcome to read and write it natively, and the best outcome for Dash
+is if they do.
 
-DashCentral served this DAO for years; when it went down, votes survived
-on-chain while the reasoning was lost. Govenr is the successor, on rails
-that can't be lost. Credit to Rango and that service belongs in the
-About page, the README, and any public description — in the first
-paragraph, not a footnote.
+## License
+
+MIT. Fork it, run it, improve it — the network can always replace the
+maintainer, and that's the point.
+
+Maintained by [Vijay Manikpuri](https://github.com/REPLACE) (Cryptotura),
+funded Dash backporter. Govenr is his full focus.
