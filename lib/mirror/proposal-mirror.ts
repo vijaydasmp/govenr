@@ -187,6 +187,9 @@ async function fetchTestnet(): Promise<MirrorResponse> {
 
       const endEpoch = d.end_epoch;
       const votingDeadline = endEpoch != null ? epochToIso(endEpoch) : null;
+      const paymentStart =
+        d.start_epoch != null ? epochToIso(d.start_epoch) : null;
+      const paymentEnd = endEpoch != null ? epochToIso(endEpoch) : null;
 
       // neededYesToFund: rough estimate — absolute yes threshold unknown on
       // testnet; use AbsoluteYesCount proxy (negative means already funded)
@@ -214,6 +217,8 @@ async function fetchTestnet(): Promise<MirrorResponse> {
           votes,
           neededYesToFund,
           votingDeadline,
+          paymentStart,
+          paymentEnd,
           engagement: { reviews: 0, comments: 0, tippedDash: 0, verifiedMnos: 0 },
         } satisfies Proposal,
       ];
@@ -302,6 +307,11 @@ async function fetchMainnet(): Promise<MirrorResponse> {
       const endEpoch =
         typeof inner.end_epoch === 'number' ? inner.end_epoch : null;
       const votingDeadline = endEpoch != null ? epochToIso(endEpoch) : null;
+      const paymentStart =
+        typeof inner.start_epoch === 'number'
+          ? epochToIso(inner.start_epoch)
+          : null;
+      const paymentEnd = endEpoch != null ? epochToIso(endEpoch) : null;
 
       const absoluteYes = entry.AbsoluteYesCount ?? yes - no;
       const neededYesToFund = Math.max(
@@ -332,6 +342,8 @@ async function fetchMainnet(): Promise<MirrorResponse> {
           votes,
           neededYesToFund,
           votingDeadline,
+          paymentStart,
+          paymentEnd,
           engagement: { reviews: 0, comments: 0, tippedDash: 0, verifiedMnos: 0 },
         } satisfies Proposal,
       ];
@@ -370,6 +382,8 @@ function fixtureResponse(): MirrorResponse {
     votes: { yes: p.votes.yes, no: p.votes.no, abstain: p.votes.abstain },
     neededYesToFund: p.neededYesToFund,
     votingDeadline: p.votingDeadline,
+    paymentStart: p.paymentStart ?? null,
+    paymentEnd: p.paymentEnd ?? null,
     engagement: {
       reviews: p.engagement.reviews,
       comments: p.engagement.comments,

@@ -45,6 +45,10 @@ export type Proposal = {
   neededYesToFund: number;
   /** ISO 8601 UTC string, or null for queued proposals with no deadline yet */
   votingDeadline: string | null;
+  /** Requested payment window start (from the gobject) — null when unknown. */
+  paymentStart: string | null;
+  /** Requested payment window end (from the gobject) — null when unknown. */
+  paymentEnd: string | null;
   engagement: ProposalEngagement;
 };
 
