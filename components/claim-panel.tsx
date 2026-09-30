@@ -167,7 +167,6 @@ export default function ClaimPanel({
         signature: sig,
       });
       setClaimState('claimed-by-you');
-      setClaimedById(session.identityId);
       setChallenge(null);
       setSignature('');
       // Tell the rest of the page (content panel → editor) that this
