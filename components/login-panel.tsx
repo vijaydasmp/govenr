@@ -238,13 +238,6 @@ function NewWalletMnemonicPanel({
   mnemonic: string;
   onConfirmed: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
-
-  const copy = () => {
-    navigator.clipboard.writeText(mnemonic).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
     <div className="space-y-4">
@@ -266,16 +259,18 @@ function NewWalletMnemonicPanel({
           borderColor: 'var(--border-strong)',
           color: 'var(--text)',
         }}
-        aria-label="Recovery phrase — copy and store safely"
+        aria-label="Recovery phrase — read and write it down"
       />
-      <div className="flex gap-3">
-        <PrimaryButton onClick={copy}>
-          {copied ? 'Copied ✓' : 'Copy phrase'}
-        </PrimaryButton>
-        <PrimaryButton onClick={onConfirmed}>
-          I&apos;ve saved it — continue
-        </PrimaryButton>
-      </div>
+      <p
+        className="font-mono text-[10px] leading-relaxed"
+        style={{ color: 'var(--text-dim)' }}
+      >
+        No copy button on purpose: clipboards sync to other devices and
+        keyboard histories. Write the phrase on paper instead.
+      </p>
+      <PrimaryButton onClick={onConfirmed}>
+        I've saved it — continue
+      </PrimaryButton>
     </div>
   );
 }
