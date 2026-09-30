@@ -16,6 +16,7 @@ import Link from 'next/link';
 import ClaimPanel from '@/components/claim-panel';
 import ProposalContentPanel from '@/components/proposal-content-panel';
 import ProposalDisplayTitle from '@/components/proposal-display-title';
+import VoteCtaPanel from '@/components/vote-cta-panel';
 
 
 export const revalidate = 60;
@@ -101,6 +102,10 @@ export default async function ProposalDetailPage({ params }: Props) {
           Platform, rendered for everyone. Discussion/Reviews/Votes come
           in a later step. */}
       <ProposalContentPanel proposalHash={proposal.hash} />
+
+      {/* The action bar: copy the official vote command for your
+          masternode's Dash Core console — Govenr itself stays read-only. */}
+      <VoteCtaPanel proposalHash={proposal.hash} />
     </div>
   );
 }

@@ -440,6 +440,10 @@ export default function ProposalContentPanel({
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean);
+    const reportRefLines = content.reportRefs
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
     return (
       <div
         className="rounded-lg border px-6 py-5 space-y-4"
@@ -488,6 +492,40 @@ export default function ProposalContentPanel({
                   style={{ color: 'var(--text)' }}
                 >
                   {line}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {reportRefLines.length > 0 && (
+          <div className="space-y-1">
+            <p
+              className="font-mono text-xs tracking-widest uppercase"
+              style={{ color: 'var(--text-dim)' }}
+            >
+              Report references
+            </p>
+            <ul className="list-disc pl-5 space-y-1">
+              {reportRefLines.map((line, index) => (
+                <li
+                  key={index}
+                  className="text-sm break-words"
+                  style={{ color: 'var(--text)' }}
+                >
+                  {/^https?:\/\//.test(line) ? (
+                    <a
+                      href={line}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline underline-offset-2"
+                      style={{ color: 'var(--l1)' }}
+                    >
+                      {line}
+                    </a>
+                  ) : (
+                    line
+                  )}
                 </li>
               ))}
             </ul>
