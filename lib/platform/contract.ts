@@ -26,9 +26,22 @@ import contractJson from '@/contracts/govenr-contract.json';
 const KEY_CONTRACT_ID = 'govenr:platform:v3:contractid';
 
 /** The stored data contract id, or null if never published on this device. */
+/**
+ * The live Govenr contract on testnet, used when this browser has none
+ * stored (a fresh visitor). Paste the v3 contract id once — in the
+ * browser console:
+ *   localStorage.getItem('govenr:platform:v3:contractid')
+ * or copy it from the platform explorer's Data contracts table. Every
+ * visitor then reads claims and content without having claimed anything
+ * themselves. Leave empty to keep per-browser discovery only.
+ */
+export const KNOWN_DEMO_CONTRACT_ID = '';
+
 export function getStoredContractId(): string | null {
   assertClientSide('getStoredContractId');
-  return localStorage.getItem(KEY_CONTRACT_ID);
+  return (
+    localStorage.getItem(KEY_CONTRACT_ID) ?? (KNOWN_DEMO_CONTRACT_ID || null)
+  );
 }
 
 /** Remembers the published data contract id. */

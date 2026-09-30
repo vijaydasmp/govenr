@@ -14,6 +14,7 @@ import type { Proposal } from '@/lib/types';
 import VoteBar from '@/components/vote-bar';
 import StateBadge from '@/components/state-badge';
 import CoverArt from '@/components/cover-art';
+import ProposalCardTitle from '@/components/proposal-card-title';
 import { dashWithSymbol } from '@/lib/format/dash';
 import { timeUntil } from '@/lib/format/dates';
 
@@ -85,7 +86,7 @@ export default function MagazineCard({
             className="font-serif text-2xl leading-tight group-hover:underline underline-offset-4 decoration-1"
             style={{ color: 'var(--text)' }}
           >
-            {title}
+            <ProposalCardTitle l1Title={title} proposalHash={hash} />
           </h2>
 
           {/* Byline */}

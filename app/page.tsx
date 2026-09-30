@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { fetchProposals } from '@/lib/mirror/proposal-mirror';
 import MagazineCard from '@/components/magazine-card';
 import CoverArt from '@/components/cover-art';
+import ProposalCardTitle from '@/components/proposal-card-title';
 import VoteBar from '@/components/vote-bar';
 import StateBadge from '@/components/state-badge';
 import { dashWithSymbol } from '@/lib/format/dash';
@@ -127,7 +128,10 @@ export default async function HubPage() {
                     className="font-serif text-4xl leading-tight group-hover:underline underline-offset-8 decoration-1"
                     style={{ color: 'var(--text)' }}
                   >
-                    {featured.title}
+                    <ProposalCardTitle
+                      l1Title={featured.title}
+                      proposalHash={featured.hash}
+                    />
                   </h2>
 
                   <div
