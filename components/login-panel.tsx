@@ -269,7 +269,7 @@ function NewWalletMnemonicPanel({
         keyboard histories. Write the phrase on paper instead.
       </p>
       <PrimaryButton onClick={onConfirmed}>
-        I've saved it — continue
+        I&apos;ve saved it — continue
       </PrimaryButton>
     </div>
   );
