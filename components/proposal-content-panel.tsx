@@ -27,7 +27,6 @@ import { getStoredContractId } from '@/lib/platform/contract';
 import { describePlatformError } from '@/lib/platform/errors';
 import { shortHandle } from '@/lib/platform/identity';
 import MarkdownView from '@/components/markdown-view';
-import IdentityDisplayName from '@/components/identity-display-name';
 
 function FieldLabel({ text }: { text: string }) {
   return (
@@ -135,6 +134,20 @@ export default function ProposalContentPanel({
       cancelled = true;
     };
   }, [proposalHash, loggedIn, session.identityId, sdkOrConnect]);
+
+  // A claim just succeeded on this page (see claim-panel). Unlock the
+  // editor optimistically — this session submitted the claim, so it is
+  // the claimant; the chain confirmation lands underneath, and the
+  // next full read confirms it.
+  useEffect(() => {
+    const onClaim = (e: Event) => {
+      const detail = (e as CustomEvent<{ proposalHash?: string }>).detail;
+      if (detail?.proposalHash !== proposalHash) return;
+      setIsClaimant(true);
+    };
+    window.addEventListener('govenr:claim', onClaim);
+    return () => window.removeEventListener('govenr:claim', onClaim);
+  }, [proposalHash]);
 
   const startEditing = () => {
     setTitle(content?.title ?? '');
@@ -468,11 +481,7 @@ export default function ProposalContentPanel({
             {content.title}
           </h2>
           <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
-            by{' '}
-            <IdentityDisplayName
-              identityId={content.ownerId}
-              fallback={shortHandle(content.ownerId, null)}
-            />
+            by {shortHandle(content.ownerId, null)}
             {content.updatedAt
               ? ` · updated ${new Date(content.updatedAt).toLocaleDateString()}`
               : ''}

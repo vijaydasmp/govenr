@@ -174,6 +174,11 @@ export default function ClaimPanel({
       setClaimedById(session.identityId);
       setChallenge(null);
       setSignature('');
+      // Tell the rest of the page (content panel → editor) that this
+      // session just claimed the proposal — no reload needed.
+      window.dispatchEvent(
+        new CustomEvent('govenr:claim', { detail: { proposalHash } }),
+      );
     } catch (err) {
       setError(describePlatformError(err));
     } finally {
