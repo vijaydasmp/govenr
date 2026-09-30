@@ -19,6 +19,7 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 
 type AnchorProps = { href?: string; children?: ReactNode };
 
@@ -76,7 +77,125 @@ function videoEmbed(href: string): VideoEmbed {
 
 const mono = 'font-mono text-xs';
 
-export default function MarkdownView({ body }: { body: string }) {
+/**
+ * Runs of image-only paragraphs (blank lines between images count as
+ * one run) are merged into a single paragraph so the paragraph renderer
+ * can present them as a carousel. A paragraph containing text breaks
+ * the run. A single image stays a standalone full-width image.
+ */
+function mergeImageRuns(body: string): string {
+  const imageLine = /^!\[[^\]]*\]\([^)\s]+\)\s*$/;
+  const isImageOnlyBlock = (b: string) => {
+    const ls = b.split('\n').filter((l) => l.trim() !== '');
+    return ls.length > 0 && ls.every((l) => imageLine.test(l.trim()));
+  };
+  const blocks = body.split(/\n{2,}/);
+  const out: string[] = [];
+  let run: string[] = [];
+  const flush = () => {
+    if (run.length > 0) {
+      out.push(run.join('\n'));
+      run = [];
+    }
+  };
+  for (const b of blocks) {
+    if (isImageOnlyBlock(b)) {
+      run.push(...b.split('\n').filter((l) => l.trim() !== ''));
+    } else {
+      flush();
+      out.push(b);
+    }
+  }
+  flush();
+  return out.join('\n\n');
+}
+
+function ImageCarousel({ images }: { images: { src: string; alt: string }[] }) {
+  const [i, setI] = useState(0);
+  const n = images.length;
+  if (n === 0) return null;
+  const go = (d: number) => setI((v) => (v + d + n) % n);
+  const btn =
+    'absolute top-1/2 -translate-y-1/2 rounded-full border px-2.5 py-0.5 font-mono text-sm leading-normal select-none';
+  const btnStyle = {
+    borderColor: 'var(--border)',
+    background: 'rgba(0,0,0,0.55)',
+    color: 'var(--text)',
+  };
+  return (
+    <span className="block my-4">
+      <span
+        className="block relative aspect-video w-full overflow-hidden rounded-lg border"
+        style={{ borderColor: 'var(--border)', background: 'rgba(0,0,0,0.35)' }}
+      >
+        {images.map((im, idx) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={im.src + '#' + idx}
+            src={im.src}
+            alt={im.alt}
+            loading="lazy"
+            className={
+              'absolute inset-0 h-full w-full object-contain ' +
+              (idx === i ? 'opacity-100' : 'pointer-events-none opacity-0')
+            }
+          />
+        ))}
+        {n > 1 && (
+          <>
+            <button
+              type="button"
+              aria-label="Previous image"
+              onClick={() => go(-1)}
+              className={btn + ' left-2'}
+              style={btnStyle}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              aria-label="Next image"
+              onClick={() => go(1)}
+              className={btn + ' right-2'}
+              style={btnStyle}
+            >
+              ›
+            </button>
+            <span
+              className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full px-2 py-1"
+              style={{ background: 'rgba(0,0,0,0.55)' }}
+            >
+              {images.map((im, idx) => (
+                <button
+                  key={im.src + '#' + idx}
+                  type="button"
+                  aria-label={'Image ' + (idx + 1)}
+                  onClick={() => setI(idx)}
+                  className={
+                    'h-1.5 w-1.5 rounded-full ' + (idx === i ? 'opacity-100' : 'opacity-40')
+                  }
+                  style={{ background: 'var(--text)' }}
+                />
+              ))}
+            </span>
+          </>
+        )}
+      </span>
+      {n > 1 && (
+        <span
+          className="mt-1 inline-block font-mono text-[10px]"
+          style={{ color: 'var(--text-dim)' }}
+        >
+          image {i + 1} / {n}
+        </span>
+      )}
+    </span>
+  );
+}
+
+export default function MarkdownView({ body: rawBody }: { body: string }) {
+  // Consecutive image-only paragraphs merge into one run -> carousel.
+  const body = mergeImageRuns(rawBody);
   return (
     <div className="markdown-view text-sm leading-relaxed" style={{ color: 'var(--text)' }}>
       <ReactMarkdown
@@ -106,7 +225,38 @@ export default function MarkdownView({ body }: { body: string }) {
               {children}
             </h4>
           ),
-          p: ({ children }) => <p className="my-3 leading-relaxed">{children}</p>,
+          p: ({ children }) => {
+            const kids = Array.isArray(children) ? children : [children];
+            const images: { src: string; alt: string }[] = [];
+            let onlyImages = true;
+            for (const child of kids) {
+              if (typeof child === 'string' || typeof child === 'number') {
+                if (String(child).trim() !== '') onlyImages = false;
+                continue;
+              }
+              const el = child as {
+                props?: { node?: { tagName?: string }; src?: unknown; alt?: unknown };
+              };
+              if (
+                el &&
+                typeof el === 'object' &&
+                'props' in el &&
+                el.props?.node?.tagName === 'img' &&
+                typeof el.props.src === 'string'
+              ) {
+                images.push({
+                  src: el.props.src,
+                  alt: typeof el.props.alt === 'string' ? el.props.alt : '',
+                });
+                continue;
+              }
+              onlyImages = false;
+            }
+            if (onlyImages && images.length >= 2) {
+              return <ImageCarousel images={images} />;
+            }
+            return <p className="my-3 leading-relaxed">{children}</p>;
+          },
           a: ({ href, children }: AnchorProps) => {
             if (!href) return <>{children}</>;
             const video = videoEmbed(href);
