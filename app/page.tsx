@@ -1,22 +1,21 @@
 /**
- * app/page.tsx — The Hub, as a magazine front page.
+ * app/page.tsx — The Hub, as a DashCentral-style listed view.
  *
  * Server component: fetches from the mirror API route at request time
- * (ISR, revalidates every 60 s). The page reads like an issue:
+ * (ISR, revalidates every 60 s). The page reads like a front page:
  *
- *   masthead   — cycle as the issue title, standfirst, edition strip
- *   cover story — the most-voted proposal as a full editorial spread
- *   contents   — every other proposal as an editorial card
+ *   masthead — brand headline, standfirst, edition strip (honesty badges)
+ *   listed   — every active proposal as a full-width card: progress
+ *              hairline, title, owner, payment terms, vote tallies,
+ *              comments — stacked vertically, not a grid
  *
- * Every number is live from L1 (read-only); art is generated from
- * proposal hashes, never fetched. Zero-vote handling is delegated to
- * VoteBar and StateBadge.
+ * Every number is live from L1 (read-only). Voting happens in Dash Core,
+ * never here — the count display is informational. Zero-vote handling is
+ * delegated to VoteBar and StateBadge.
  */
 
 import Link from 'next/link';
 import { fetchProposals } from '@/lib/mirror/proposal-mirror';
-import MagazineCard from '@/components/magazine-card';
-import CoverArt from '@/components/cover-art';
 import ProposalCardTitle from '@/components/proposal-card-title';
 import VoteBar from '@/components/vote-bar';
 import StateBadge from '@/components/state-badge';
@@ -40,10 +39,26 @@ export default async function HubPage() {
       ? { bg: 'var(--l1-dim)', color: 'var(--l1)' }
       : { bg: 'var(--rail-dim)', color: 'var(--rail)' };
 
-  // Cover story: the most-voted active proposal.
-  const ranked = [...proposals].sort((a, b) => totalVotesOf(b) - totalVotesOf(a));
-  const featured = ranked[0] ?? null;
-  const rest = ranked.slice(1);
+  // Listed order: strongest net support first, then raw engagement.
+  const ranked = [...proposals].sort((a, b) => {
+    const netA = a.votes.yes - a.votes.no;
+    const netB = b.votes.yes - b.votes.no;
+    if (netA !== netB) return netB - netA;
+    return totalVotesOf(b) - totalVotesOf(a);
+  });
+
+  // Real budget arithmetic from the live list — never invented totals.
+  const monthlyAsk = proposals
+    .filter((p) => p.isMonthly)
+    .reduce((sum, p) => sum + p.amountDash, 0);
+  const oneTimeAsk = proposals
+    .filter((p) => !p.isMonthly)
+    .reduce((sum, p) => sum + p.amountDash, 0);
+  const deadlines = proposals
+    .map((p) => p.votingDeadline)
+    .filter((d): d is string => Boolean(d))
+    .sort();
+  const soonest = deadlines[0] ?? null;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-12 space-y-10">
@@ -108,126 +123,151 @@ export default async function HubPage() {
         </p>
       ) : (
         <>
-          {/* -------------------------------------- Cover story */}
-          {featured && (
-            <section aria-label="Cover story">
+          {/* ---------------------------------------- Listed proposals */}
+          <section aria-label="Active proposals" className="space-y-4">
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 pt-2">
               <p
-                className="font-mono text-xs font-semibold tracking-[0.25em] uppercase mb-4"
-                style={{ color: 'var(--text-dim)' }}
+                className="text-lg font-bold tracking-wide uppercase"
+                style={{ color: 'var(--text)' }}
               >
-                Cover story
+                {proposals.length} active proposal
+                {proposals.length !== 1 ? 's' : ''}
               </p>
-              <Link
-                href={`/proposals/${encodeURIComponent(featured.id)}`}
-                className="group grid gap-6 sm:grid-cols-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-4"
-                aria-label={`View proposal: ${featured.title}`}
-              >
-                {/* Text column */}
-                <div className="sm:col-span-3 space-y-4">
-                  <h2
-                    className="font-serif text-4xl leading-tight group-hover:underline underline-offset-8 decoration-1"
-                    style={{ color: 'var(--text)' }}
-                  >
-                    <ProposalCardTitle
-                      l1Title={featured.title}
-                      proposalHash={featured.hash}
-                    />
-                  </h2>
+              <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
+                active asks: {dashWithSymbol(monthlyAsk)} tDASH monthly
+                {oneTimeAsk > 0
+                  ? ` + ${dashWithSymbol(oneTimeAsk)} tDASH one-time`
+                  : ''}
+                {soonest ? ` · voting closes as soon as ${timeUntil(soonest)}` : ''}
+              </p>
+            </div>
 
-                  <div
-                    className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs"
-                    style={{ color: 'var(--text-dim)' }}
+            <div className="space-y-4">
+              {ranked.map((proposal) => {
+                const net = proposal.votes.yes - proposal.votes.no;
+                const pct = proposal.neededYesToFund > 0
+                  ? Math.min(
+                      100,
+                      Math.round(
+                        (proposal.votes.yes / proposal.neededYesToFund) * 100
+                      )
+                    )
+                  : 0;
+                return (
+                  <Link
+                    key={proposal.hash}
+                    href={`/proposals/${encodeURIComponent(proposal.id)}`}
+                    className="group block rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-4"
+                    style={{
+                      borderColor: 'var(--border)',
+                      backgroundColor: 'var(--surface)',
+                    }}
+                    aria-label={`View proposal: ${proposal.title}`}
                   >
-                    <span>by {featured.ownerHandle}</span>
-                    <span style={{ color: 'var(--text)' }}>
-                      {dashWithSymbol(featured.amountDash)}
-                      {featured.isMonthly && (
-                        <span style={{ color: 'var(--text-dim)' }}>
-                          {' '}× {featured.paymentsRemaining}mo
-                        </span>
-                      )}
-                    </span>
-                    {featured.votingDeadline && (
-                      <span>{timeUntil(featured.votingDeadline)} to vote</span>
-                    )}
-                    <StateBadge
-                      state={featured.state}
-                      zeroVotes={totalVotesOf(featured) === 0}
-                    />
-                  </div>
-
-                  {!(
-                    featured.votes.yes === 0 &&
-                    featured.votes.no === 0 &&
-                    featured.votes.abstain === 0
-                  ) && (
-                    <p
-                      className="font-mono text-sm"
-                      style={{ color: 'var(--gold)' }}
+                    {/* Progress hairline — yes votes toward the funding threshold */}
+                    <div
+                      className="h-1 rounded-t-lg overflow-hidden"
+                      style={{ backgroundColor: 'var(--border)' }}
+                      title={`${pct}% of the yes votes needed to fund`}
                     >
-                      needs +{featured.neededYesToFund} yes to fund
-                    </p>
-                  )}
+                      <div
+                        className="h-full"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor:
+                            net >= 0 ? 'var(--yes)' : 'var(--no)',
+                        }}
+                      />
+                    </div>
 
-                  <VoteBar votes={featured.votes} className="max-w-md" />
-                </div>
+                    <div className="p-5 space-y-3">
+                      {/* Title + state */}
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h2
+                          className="font-serif text-2xl leading-tight group-hover:underline underline-offset-8 decoration-1"
+                          style={{ color: 'var(--text)' }}
+                        >
+                          <ProposalCardTitle
+                            l1Title={proposal.title}
+                            proposalHash={proposal.hash}
+                          />
+                        </h2>
+                        <StateBadge
+                          state={proposal.state}
+                          zeroVotes={totalVotesOf(proposal) === 0}
+                        />
+                      </div>
 
-                {/* Cover plate */}
-                <div className="sm:col-span-2 space-y-2">
-                  <div
-                    className="rounded-lg overflow-hidden border transition-shadow group-hover:shadow-xl"
-                    style={{ borderColor: 'var(--border)' }}
-                  >
-                    <CoverArt hash={featured.hash} className="block w-full h-56" />
-                  </div>
-                  <p
-                    className="font-mono text-[10px] break-all"
-                    style={{ color: 'var(--text-dim)' }}
-                  >
-                    {featured.hash}
-                  </p>
-                </div>
-              </Link>
-            </section>
-          )}
+                      {/* Owner + payment terms + deadline */}
+                      <p
+                        className="font-mono text-xs"
+                        style={{ color: 'var(--text-dim)' }}
+                      >
+                        by {proposal.ownerHandle} ·{' '}
+                        {dashWithSymbol(proposal.amountDash)} tDASH{' '}
+                        {proposal.isMonthly
+                          ? `per month (${proposal.paymentsRemaining} payment${
+                              proposal.paymentsRemaining !== 1 ? 's' : ''
+                            } remaining)`
+                          : 'one-time payment'}
+                        {proposal.votingDeadline &&
+                          ` · ${timeUntil(proposal.votingDeadline)} to vote`}
+                      </p>
 
-          {/* -------------------------------------- Contents grid */}
-          {rest.length > 0 && (
-            <section aria-label="In this cycle" className="space-y-6">
-              <div
-                className="flex items-center gap-4 border-t pt-6"
-                style={{ borderColor: 'var(--border)' }}
-              >
-                <p
-                  className="font-mono text-xs font-semibold tracking-[0.25em] uppercase"
-                  style={{ color: 'var(--text-dim)' }}
-                >
-                  In this cycle
-                </p>
-                <p
-                  className="font-mono text-xs"
-                  style={{ color: 'var(--text-dim)' }}
-                >
-                  {rest.length} more proposal{rest.length !== 1 ? 's' : ''}
-                </p>
-              </div>
+                      {/* Vote row: bar, net count, comments, CTA */}
+                      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-1">
+                        <VoteBar
+                          votes={proposal.votes}
+                          className="min-w-[200px] max-w-md flex-1"
+                        />
+                        <div className="text-right">
+                          <p
+                            className="font-mono text-xl leading-none"
+                            style={{
+                              color: net >= 0 ? 'var(--yes)' : 'var(--no)',
+                            }}
+                          >
+                            {net >= 0 ? '+' : ''}
+                            {net}
+                          </p>
+                          <p
+                            className="font-mono text-[10px] mt-1"
+                            style={{ color: 'var(--text-dim)' }}
+                          >
+                            yes {proposal.votes.yes} · no {proposal.votes.no} ·
+                            abstain {proposal.votes.abstain}
+                          </p>
+                        </div>
+                        <p
+                          className="font-mono text-xs"
+                          style={{ color: 'var(--text-dim)' }}
+                        >
+                          {proposal.engagement.comments} comment
+                          {proposal.engagement.comments !== 1 ? 's' : ''}
+                        </p>
+                        <p
+                          className="ml-auto font-mono text-xs group-hover:underline underline-offset-4"
+                          style={{ color: 'var(--l1)' }}
+                        >
+                          view →
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
 
-              <div className="grid gap-6 sm:grid-cols-2">
-                {rest.map((proposal, i) => (
-                  <MagazineCard key={proposal.hash} proposal={proposal} index={i + 1} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* -------------------------------------- Colophon */}
+          {/* ------------------------------------------- Colophon */}
           <footer
             className="border-t pt-6 font-mono text-xs leading-relaxed"
             style={{ borderColor: 'var(--border)', color: 'var(--text-dim)' }}
           >
-            Votes read from L1 (read-only) · refreshed every 60 s · covers
-            generated from proposal hashes · proposal text lives on Dash
-            Platform as documents owned by their claimants.
+            Votes read from L1 (read-only) · refreshed every 60 s ·
+            proposal text lives on Dash Platform as documents owned by
+            their claimants · voting itself happens in Dash Core, never
+            in this browser.
           </footer>
         </>
       )}
