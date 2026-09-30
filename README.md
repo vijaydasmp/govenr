@@ -52,7 +52,7 @@ exactly as now. Govenr reads the tally and shows it.
 ## Run it
 
 ```bash
-git clone (REPLACE: repo URL)
+git clone https://github.com/vijaydasmp/govenr.git
 cd govenr
 npm install
 npm run dev
