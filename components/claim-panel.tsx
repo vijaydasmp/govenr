@@ -31,9 +31,7 @@ import {
   ensureContractPublished,
   getStoredContractId,
 } from '@/lib/platform/contract';
-import { shortHandle } from '@/lib/platform/identity';
 import { describePlatformError } from '@/lib/platform/errors';
-import IdentityDisplayName from '@/components/identity-display-name';
 
 type ClaimState =
   | 'unknown'
@@ -52,7 +50,6 @@ export default function ClaimPanel({
 }) {
   const { session, sdk, setSdk, authKeyWif } = useSession();
   const [claimState, setClaimState] = useState<ClaimState>('unknown');
-  const [claimedById, setClaimedById] = useState<string | null>(null);
   const [challenge, setChallenge] = useState<string | null>(null);
   const [signature, setSignature] = useState('');
   const [busy, setBusy] = useState(false);
@@ -92,7 +89,6 @@ export default function ClaimPanel({
           setClaimState('unclaimed');
           return;
         }
-        setClaimedById(claim.ownerId);
         setClaimState(
           session.identityId === claim.ownerId
             ? 'claimed-by-you'
@@ -206,25 +202,11 @@ export default function ClaimPanel({
     return null;
   }
 
-  // Claimed by someone else.
-  if (claimState === 'claimed-by-other' && claimedById) {
-    return (
-      <div
-        className="rounded-lg border px-6 py-4"
-        style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
-        aria-live="polite"
-      >
-        <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
-          Claimed by{' '}
-          <span style={{ color: 'var(--text)' }}>
-            <IdentityDisplayName
-              identityId={claimedById}
-              fallback={shortHandle(claimedById, null)}
-            />
-          </span>
-        </p>
-      </div>
-    );
+  // Claimed by someone else: no box needed either — the owner byline in
+  // the page header already names the claimant, and the claim evidence
+  // stays on-chain regardless.
+  if (claimState === 'claimed-by-other') {
+    return null;
   }
 
   // Not logged in.
