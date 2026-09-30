@@ -47,9 +47,23 @@ export const KNOWN_DEMO_CONTRACT_ID =
 
 export function getStoredContractId(): string | null {
   assertClientSide('getStoredContractId');
-  return (
-    localStorage.getItem(KEY_CONTRACT_ID) ?? (KNOWN_DEMO_CONTRACT_ID || null)
-  );
+  const stored = localStorage.getItem(KEY_CONTRACT_ID);
+  const canonical = KNOWN_DEMO_CONTRACT_ID || null;
+  if (canonical) {
+    // Canonical wins. A browser holding a different id (from an older
+    // publish) would otherwise read and write a different contract than
+    // everyone else — edits saved there are invisible to other readers.
+    // Realign it so every browser reads and writes the same contract.
+    if (stored !== canonical) {
+      try {
+        localStorage.setItem(KEY_CONTRACT_ID, canonical);
+      } catch {
+        // Storage unavailable — the canonical id is still returned below.
+      }
+    }
+    return canonical;
+  }
+  return stored;
 }
 
 /** Remembers the published data contract id. */
@@ -155,6 +169,20 @@ export async function ensureContractPublished(
   onLog?: (msg: string) => void,
 ): Promise<string> {
   assertClientSide('ensureContractPublished');
+  const canonical = KNOWN_DEMO_CONTRACT_ID;
+  if (canonical) {
+    // A canonical contract is configured for this deployment: it is the one
+    // contract every browser reads and writes. NEVER publish a new one here
+    // — a fresh publish derives a new id from hash(ownerId, nonce) and forks
+    // content and claims into a stray contract that other browsers cannot see.
+    try {
+      const existing = await sdk.contracts.fetch(canonical);
+      if (existing) return canonical;
+    } catch {
+      onLog?.('Canonical contract could not be fetched — check the id.');
+    }
+    return canonical;
+  }
   const stored = getStoredContractId();
   if (stored) {
     try {

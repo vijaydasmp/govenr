@@ -48,27 +48,45 @@ export async function fetchProposalContent(
       dataContractId: contractId,
       documentTypeName: 'proposalContent',
       where: [['proposalHash', '==', hexToBase64(proposalHash)]],
-      limit: 1,
+      // Fetch more than one and pick the highest revision below: an
+      // unordered response must never let a fresh edit look lost.
+      limit: 10,
     });
+    let newest: {
+      revision: bigint;
+      ownerId: string;
+      documentId: string;
+      props: Record<string, unknown>;
+      createdAt: unknown;
+    } | null = null;
     for (const doc of results.values()) {
       if (!doc) continue;
-      const props = (doc.properties ?? {}) as Record<string, unknown>;
       const revision =
         typeof doc.revision === 'bigint' ? doc.revision : 1n;
-      return {
-        ownerId: doc.ownerId.toString(),
-        documentId: doc.id.toString(),
-        revision,
-        title: typeof props.title === 'string' ? props.title : '',
-        body: typeof props.body === 'string' ? props.body : '',
-        milestones: typeof props.milestones === 'string' ? props.milestones : '',
-        reportRefs: typeof props.reportRefs === 'string' ? props.reportRefs : '',
-        updatedAt: doc.createdAt
-          ? new Date(Number(doc.createdAt)).toISOString()
-          : null,
-      };
+      if (!newest || revision > newest.revision) {
+        newest = {
+          revision,
+          ownerId: doc.ownerId.toString(),
+          documentId: doc.id.toString(),
+          props: (doc.properties ?? {}) as Record<string, unknown>,
+          createdAt: doc.createdAt,
+        };
+      }
     }
-    return null;
+    if (!newest) return null;
+    const props = newest.props;
+    return {
+      ownerId: newest.ownerId,
+      documentId: newest.documentId,
+      revision: newest.revision,
+      title: typeof props.title === 'string' ? props.title : '',
+      body: typeof props.body === 'string' ? props.body : '',
+      milestones: typeof props.milestones === 'string' ? props.milestones : '',
+      reportRefs: typeof props.reportRefs === 'string' ? props.reportRefs : '',
+      updatedAt: newest.createdAt
+        ? new Date(Number(newest.createdAt)).toISOString()
+        : null,
+    };
   } catch {
     return null;
   }
