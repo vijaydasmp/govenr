@@ -54,13 +54,13 @@ export default async function HubPage() {
           className="font-mono text-xs font-semibold tracking-[0.25em] uppercase"
           style={{ color: 'var(--gold)' }}
         >
-          Govenr · The DAO&rsquo;s front page
+          The DAO&rsquo;s front page
         </p>
         <h1
           className="font-serif text-5xl sm:text-6xl"
           style={{ color: 'var(--text)', lineHeight: 1.05 }}
         >
-          {cycle.label}
+          Govenr
         </h1>
         <p
           className="max-w-2xl text-base leading-relaxed"
