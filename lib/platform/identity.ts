@@ -343,3 +343,36 @@ export function shortHandle(
   if (identityId.length <= 12) return identityId;
   return `${identityId.slice(0, 6)}…${identityId.slice(-4)}`;
 }
+
+// ---------------------------------------------------------------------------
+// Identity display names (DPNS)
+// ---------------------------------------------------------------------------
+
+/** Cached DPNS lookups — identity id -> display name (e.g. "hehe.dash"). */
+const displayNameCache = new Map<
+  string,
+  { at: number; name: string | null }
+>();
+const DISPLAY_NAME_TTL_MS = 300_000;
+
+/**
+ * Returns the identity's DPNS name (e.g. "hehe.dash"), or null if it has
+ * none or the lookup fails. Cached for five minutes per identity.
+ */
+export async function fetchIdentityDisplayName(
+  sdk: DashSdk,
+  identityId: string,
+): Promise<string | null> {
+  assertClientSide('fetchIdentityDisplayName');
+  const hit = displayNameCache.get(identityId);
+  if (hit && Date.now() - hit.at < DISPLAY_NAME_TTL_MS) return hit.name;
+  let name: string | null = null;
+  try {
+    const names = await sdk.dpns.usernames({ identityId });
+    name = names && names.length > 0 ? names[0] : null;
+  } catch {
+    name = null;
+  }
+  displayNameCache.set(identityId, { at: Date.now(), name });
+  return name;
+}

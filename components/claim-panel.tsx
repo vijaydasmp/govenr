@@ -33,6 +33,7 @@ import {
 } from '@/lib/platform/contract';
 import { shortHandle } from '@/lib/platform/identity';
 import { describePlatformError } from '@/lib/platform/errors';
+import IdentityDisplayName from '@/components/identity-display-name';
 
 type ClaimState =
   | 'unknown'
@@ -211,7 +212,10 @@ export default function ClaimPanel({
         <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
           Claimed by{' '}
           <span style={{ color: 'var(--text)' }}>
-            {shortHandle(claimedById, null)}
+            <IdentityDisplayName
+              identityId={claimedById}
+              fallback={shortHandle(claimedById, null)}
+            />
           </span>
         </p>
       </div>

@@ -17,6 +17,7 @@ import ClaimPanel from '@/components/claim-panel';
 import ProposalContentPanel from '@/components/proposal-content-panel';
 import ProposalDisplayTitle from '@/components/proposal-display-title';
 import VoteCtaPanel from '@/components/vote-cta-panel';
+import ProposalOwnerByline from '@/components/proposal-owner-byline';
 
 
 export const revalidate = 60;
@@ -64,7 +65,12 @@ export default async function ProposalDetailPage({ params }: Props) {
           className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs"
           style={{ color: 'var(--text-dim)' }}
         >
-          <span>{proposal.ownerHandle}</span>
+          {/* Claimant's DPNS name when claimed (e.g. hehe.dash);
+              the raw L1 handle (payment address) otherwise. */}
+          <ProposalOwnerByline
+            l1Handle={proposal.ownerHandle}
+            proposalHash={proposal.hash}
+          />
           <span style={{ color: 'var(--text)' }}>
             {dashWithSymbol(proposal.amountDash)}
             {proposal.isMonthly && (
