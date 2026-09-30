@@ -18,7 +18,7 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 type AnchorProps = { href?: string; children?: ReactNode };
 
@@ -26,44 +26,41 @@ type VideoEmbed =
   | { kind: 'youtube' | 'vimeo' | 'file'; src: string }
   | null;
 
+/**
+ * A bad video ID must never reach the iframe — YouTube renders its
+ * "Video player configuration error · Error 153" screen for junk IDs
+ * (trailing slashes, pasted parens, tracking fragments riding along).
+ * Anything that doesn't validate falls back to a plain link instead.
+ */
+function youtubeEmbed(id: string): VideoEmbed {
+  const clean = (id.split('/')[0] ?? '').split('?')[0].split('#')[0];
+  // YouTube IDs are url-safe base64, ~11 characters.
+  if (!/^[\w-]{6,15}$/.test(clean)) return null;
+  return { kind: 'youtube', src: `https://www.youtube-nocookie.com/embed/${clean}` };
+}
+
 function videoEmbed(href: string): VideoEmbed {
   try {
     const url = new URL(href);
-    const host = url.hostname.replace(/^www\./, '');
-    if (host === 'youtube.com' || host === 'm.youtube.com') {
+    const host = url.hostname.replace(/^www\./, '').toLowerCase();
+    const isYouTubeSite =
+      host === 'youtube.com' ||
+      host === 'youtube-nocookie.com' ||
+      host === 'youtu.be' ||
+      host.endsWith('.youtube.com') ||
+      host.endsWith('.youtube-nocookie.com');
+    if (isYouTubeSite) {
+      if (host === 'youtu.be') {
+        return youtubeEmbed(url.pathname.split('/')[1] ?? '');
+      }
       const v = url.searchParams.get('v');
-      if (v) {
-        return {
-          kind: 'youtube',
-          src: `https://www.youtube-nocookie.com/embed/${v}`,
-        };
-      }
-      const shorts = url.pathname.match(/^\/shorts\/([\w-]+)/);
-      if (shorts) {
-        return {
-          kind: 'youtube',
-          src: `https://www.youtube-nocookie.com/embed/${shorts[1]}`,
-        };
-      }
-      const embed = url.pathname.match(/^\/embed\/([\w-]+)/);
-      if (embed) {
-        return {
-          kind: 'youtube',
-          src: `https://www.youtube-nocookie.com/embed/${embed[1]}`,
-        };
-      }
+      if (v) return youtubeEmbed(v);
+      const m = url.pathname.match(/^\/(?:shorts|embed|live|v)\/([\w-]+)/);
+      if (m) return youtubeEmbed(m[1]);
+      return null;
     }
-    if (host === 'youtu.be') {
-      const id = url.pathname.slice(1);
-      if (id) {
-        return {
-          kind: 'youtube',
-          src: `https://www.youtube-nocookie.com/embed/${id}`,
-        };
-      }
-    }
-    if (host === 'vimeo.com') {
-      const id = url.pathname.replace(/^\//, '');
+    if (host === 'vimeo.com' || host === 'player.vimeo.com') {
+      const id = url.pathname.replace(/^\//, '').split('/')[0];
       if (/^\d+$/.test(id)) {
         return { kind: 'vimeo', src: `https://player.vimeo.com/video/${id}` };
       }
@@ -78,129 +75,6 @@ function videoEmbed(href: string): VideoEmbed {
 }
 
 const mono = 'font-mono text-xs';
-
-// ---------------------------------------------------------------------------
-// Image carousel — 2+ consecutive images in one paragraph become a gallery
-// (the v2 wireframe's "event photos" block). Captions come from alt text.
-// ---------------------------------------------------------------------------
-
-type CarouselImage = { src: string; alt?: string };
-
-type HastNode = {
-  type?: string;
-  tagName?: string;
-  properties?: Record<string, unknown>;
-  children?: HastNode[];
-};
-
-function ImageCarousel({ images }: { images: CarouselImage[] }) {
-  const [index, setIndex] = useState(0);
-  const current = images[index] ?? images[0];
-  if (!current) return null;
-
-  const go = (dir: number) =>
-    setIndex((i) => (i + dir + images.length) % images.length);
-
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'ArrowLeft') go(-1);
-    if (e.key === 'ArrowRight') go(1);
-  };
-
-  return (
-    <figure className="my-5">
-      <div
-        role="region"
-        aria-roledescription="carousel"
-        aria-label="Proposal images"
-        tabIndex={0}
-        onKeyDown={onKeyDown}
-        className="relative rounded-lg overflow-hidden border focus-visible:outline-none focus-visible:ring-2"
-        style={{ borderColor: 'var(--border)', backgroundColor: '#16304f' }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={current.src}
-          alt={current.alt ?? ''}
-          className="w-full max-h-[480px] object-contain select-none"
-        />
-        {images.length > 1 && (
-          <>
-            <button
-              type="button"
-              onClick={() => go(-1)}
-              aria-label="Previous image"
-              className="absolute top-1/2 left-2 -translate-y-1/2 rounded-full w-9 h-9 flex items-center justify-center text-lg"
-              style={{
-                backgroundColor: 'rgba(22, 48, 79, 0.85)',
-                color: '#ffffff',
-                border: '1px solid rgba(255,255,255,0.25)',
-              }}
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              onClick={() => go(1)}
-              aria-label="Next image"
-              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full w-9 h-9 flex items-center justify-center text-lg"
-              style={{
-                backgroundColor: 'rgba(22, 48, 79, 0.85)',
-                color: '#ffffff',
-                border: '1px solid rgba(255,255,255,0.25)',
-              }}
-            >
-              ›
-            </button>
-            <span
-              className={`absolute bottom-2 right-2 rounded px-2 py-0.5 ${mono}`}
-              style={{ backgroundColor: 'rgba(22, 48, 79, 0.85)', color: '#ffffff' }}
-            >
-              {index + 1} / {images.length}
-            </span>
-          </>
-        )}
-      </div>
-      {current.alt && (
-        <figcaption
-          className={`pt-1.5 text-center ${mono}`}
-          style={{ color: 'var(--text-dim)' }}
-        >
-          {current.alt}
-        </figcaption>
-      )}
-      {images.length > 1 && (
-        <div className="flex flex-wrap justify-center gap-2 pt-2">
-          {images.map((img, i) => (
-            <button
-              key={`${img.src}-${i}`}
-              type="button"
-              onClick={() => setIndex(i)}
-              aria-label={`Show image ${i + 1}`}
-              aria-current={i === index}
-              className="rounded overflow-hidden focus-visible:outline-none focus-visible:ring-2"
-              style={{
-                border:
-                  i === index
-                    ? '2px solid var(--gold)'
-                    : '1px solid var(--border)',
-                padding: 0,
-                lineHeight: 0,
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={img.src}
-                alt=""
-                className="h-10 w-14 object-cover"
-                loading="lazy"
-              />
-            </button>
-          ))}
-        </div>
-      )}
-    </figure>
-  );
-}
 
 export default function MarkdownView({ body }: { body: string }) {
   return (
@@ -232,29 +106,7 @@ export default function MarkdownView({ body }: { body: string }) {
               {children}
             </h4>
           ),
-          p: ({ node, children }) => {
-            // A paragraph that is nothing but images is a gallery.
-            const elements = (node?.children ?? []).filter(
-              (c) => (c as HastNode).type === 'element',
-            ) as HastNode[];
-            if (
-              elements.length >= 2 &&
-              elements.every((c) => c.tagName === 'img')
-            ) {
-              const images: CarouselImage[] = elements.map((c) => ({
-                src: String(c.properties?.src ?? ''),
-                alt:
-                  typeof c.properties?.alt === 'string'
-                    ? c.properties.alt
-                    : undefined,
-              }));
-              const usable = images.filter((img) => img.src);
-              if (usable.length >= 2) {
-                return <ImageCarousel images={usable} />;
-              }
-            }
-            return <p className="my-3 leading-relaxed">{children}</p>;
-          },
+          p: ({ children }) => <p className="my-3 leading-relaxed">{children}</p>,
           a: ({ href, children }: AnchorProps) => {
             if (!href) return <>{children}</>;
             const video = videoEmbed(href);
@@ -269,9 +121,22 @@ export default function MarkdownView({ body }: { body: string }) {
                       src={video.src}
                       title="Embedded video"
                       className="w-full h-full"
+                      allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share; clipboard-write"
+                      referrerPolicy="strict-origin-when-cross-origin"
                       allowFullScreen
                     />
                   </span>
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-block font-mono text-[10px] underline underline-offset-2"
+                    style={{ color: 'var(--text-dim)' }}
+                  >
+                    {video.kind === 'youtube'
+                      ? 'video · open on YouTube ↗'
+                      : 'video · open on Vimeo ↗'}
+                  </a>
                 </span>
               );
             }
