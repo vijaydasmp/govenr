@@ -46,15 +46,6 @@ export default function AboutPage() {
       </p>
 
       <p
-        className="max-w-2xl font-mono text-xs leading-relaxed"
-        style={{ color: 'var(--text-dim)' }}
-      >
-        Lineage: inspired by DashCentral&apos;s proposal pages, Rango&apos;s
-        tipping wallet, and yappr&apos;s Platform identity login. Built in the
-        open.
-      </p>
-
-      <p
         className="font-mono text-xs"
         style={{ color: 'var(--text-dim)' }}
         aria-live="polite"
