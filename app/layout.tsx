@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { DM_Sans, Instrument_Serif, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import AppHeader from '@/components/app-header';
+import TestnetBanner from '@/components/testnet-banner';
 import { SessionProvider } from '@/lib/platform/session-context';
 
 const dmSans = DM_Sans({
@@ -42,6 +43,7 @@ export default function RootLayout({
     >
       <body>
         <SessionProvider>
+          <TestnetBanner />
           <AppHeader />
           <main>{children}</main>
         </SessionProvider>
