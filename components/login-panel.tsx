@@ -576,8 +576,18 @@ function ImportWalletPanel({ onDone }: { onDone: () => void }) {
         Restore existing identity
       </h2>
       <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
-        Enter your 12-word recovery phrase and choose a passphrase to encrypt
-        it locally on this device.
+        For when your saved key is gone: this re-derives your Platform
+        identity keys inside this browser from the phrase you wrote down
+        when creating the identity. Signing stays local — nothing is sent
+        anywhere. Choose a passphrase to encrypt the phrase on this device.
+      </p>
+      <p
+        className="font-mono text-[10px] leading-relaxed"
+        style={{ color: 'var(--text-dim)' }}
+      >
+        Use this only for an identity you created in Govenr. If your phrase
+        controls a wallet with funds you care about, do not paste it into
+        any website — including this one.
       </p>
       <div className="space-y-1">
         <label
@@ -763,14 +773,23 @@ function KeyLoginPanel({
         >
           Create new testnet identity
         </button>
-        <button
-          type="button"
-          onClick={onRestore}
-          className="font-mono text-xs text-left focus-visible:outline-none focus-visible:ring-1"
-          style={{ color: 'var(--text-dim)' }}
-        >
-          Restore with recovery phrase →
-        </button>
+        <div>
+          <button
+            type="button"
+            onClick={onRestore}
+            className="font-mono text-xs text-left focus-visible:outline-none focus-visible:ring-1"
+            style={{ color: 'var(--text-dim)' }}
+          >
+            Lost your saved key? Restore from your recovery phrase →
+          </button>
+          <p
+            className="font-mono text-[10px] mt-1 leading-relaxed"
+            style={{ color: 'var(--text-dim)' }}
+          >
+            Only the words Govenr showed you when creating this identity.
+            Never paste a phrase that controls funds you care about.
+          </p>
+        </div>
       </div>
     </div>
   );
