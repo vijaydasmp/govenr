@@ -89,5 +89,5 @@ is if they do.
 MIT. Fork it, run it, improve it — the network can always replace the
 maintainer, and that's the point.
 
-Maintained by [Vijay Manikpuri](https://github.com/REPLACE) (Cryptotura),
+Maintained by [Vijay Manikpuri](https://github.com/vijaydasmp) (Cryptotura),
 funded Dash backporter. Govenr is his full focus.
