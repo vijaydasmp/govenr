@@ -91,6 +91,22 @@ export default function AppHeader() {
 
           {/* Session area — pushed right */}
           <div className="ml-auto flex items-center gap-3 flex-wrap">
+            {/* Create proposal link */}
+            <a
+              href="https://proposal.dash.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-xs rounded-full px-3 py-1 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+              style={{
+                borderColor: 'var(--border-strong)',
+                color: 'var(--text-dim)',
+                backgroundColor: 'var(--surface)',
+              }}
+              aria-label="Create a new proposal on Dash Proposal System"
+            >
+              Create proposal <span aria-hidden="true">↗</span>
+            </a>
+
             {/* idle or locked → sign-in button */}
             {(session.status === 'idle' || session.status === 'locked') && (
               <button
