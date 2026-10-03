@@ -8,8 +8,8 @@ report references — lives as a **Dash Platform document under the proposal
 owner's own identity**. Editable by the owner, readable by everyone, held by
 no server.
 
-- **Demo (testnet):** (REPLACE: https://…)
-- **Pre-proposal discussion:** (REPLACE: Dash Forum thread URL)
+- **Demo (testnet):** https://govenr.vercel.app
+- **Pre-proposal discussion:** https://www.dash.org/forum/threads/govenr-—-the-proposal-itself-lives-on-dash-platform-pre-proposal-feedback-wanted.69622/
 - **Status:** Stage 1 — testnet, single maintainer, under active development.
 
 ## Why
