@@ -248,31 +248,25 @@ export default function ClaimPanel({
         </p>
         {[
           paymentAddress
-            ? { label: 'payout address', addr: paymentAddress }
+            ? { key: 'command', addr: paymentAddress }
             : null,
           collateralAddress
-            ? { label: 'collateral (fee) address', addr: collateralAddress }
+            ? { key: 'command', addr: collateralAddress }
             : null,
         ]
-          .filter((b): b is { label: string; addr: string } => b !== null)
-          .map(({ label, addr }) => {
+          .filter((b): b is { key: string; addr: string } => b !== null)
+          .map(({ key, addr }) => {
             const cmd = 'signmessage "' + addr + '" "' + challenge + '"';
-            const copiedNow = copiedKey === label;
+            const copiedNow = copiedKey === key;
             return (
               <div
-                key={label}
+                key={key}
                 className="rounded border p-3 space-y-2"
                 style={{
                   backgroundColor: 'var(--surface-dim)',
                   borderColor: 'var(--border-strong)',
                 }}
               >
-                <p
-                  className="font-mono text-xs tracking-widest uppercase"
-                  style={{ color: 'var(--text-dim)' }}
-                >
-                  {label}
-                </p>
                 <p
                   className="font-mono text-xs break-all"
                   style={{ color: 'var(--text)' }}
@@ -281,7 +275,7 @@ export default function ClaimPanel({
                 </p>
                 <button
                   type="button"
-                  onClick={() => copyText(label, cmd)}
+                  onClick={() => copyText(key, cmd)}
                   className="font-mono text-xs focus-visible:outline-none focus-visible:ring-1"
                   style={{ color: 'var(--l1)' }}
                 >
