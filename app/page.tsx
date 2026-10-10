@@ -152,6 +152,17 @@ export default async function HubPage({
               </p>
             </div>
 
+            {network === 'mainnet' && (
+              <p
+                className="font-mono text-[10px] leading-relaxed"
+                style={{ color: 'var(--text-dim)' }}
+              >
+                Mainnet is read-only, so these titles are the L1 object names.
+                The title and description a claimant writes live on Dash
+                Platform (testnet) for now.
+              </p>
+            )}
+
             <div className="space-y-4">
               {ranked.map((proposal) => {
                 const net = proposal.votes.yes - proposal.votes.no;
