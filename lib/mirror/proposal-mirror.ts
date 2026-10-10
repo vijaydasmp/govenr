@@ -130,14 +130,101 @@ interface InsightProposal {
   AbstainCount?: number;
 }
 
-// Raw shape coming back from the mainnet RPC gobject list
+// Raw shape coming back from the mainnet RPC gobject list. Nodes differ in
+// how they ship the proposal data, so every variant is declared and handled:
+// DataObject (parsed), DataString (JSON, array-of-pairs or object), DataHex.
 interface RpcGobjectEntry {
   Hash?: string;
   DataString?: string;
+  DataHex?: string;
+  DataObject?: {
+    name?: string;
+    payment_address?: string;
+    payment_amount?: number;
+    start_epoch?: number;
+    end_epoch?: number;
+    type?: number;
+    url?: string;
+  };
   AbsoluteYesCount?: number;
   YesCount?: number;
   NoCount?: number;
   AbstainCount?: number;
+}
+
+/** How many governance entries a gobject-list response actually carries. */
+function countGobjectEntries(value: unknown): number {
+  if (typeof value !== 'object' || value === null) return 0;
+  return Object.keys(value as Record<string, unknown>).filter(
+    (k) => k !== 'summary',
+  ).length;
+}
+
+/**
+ * The proposal fields from a gobject entry, whichever shape the node sent.
+ *
+ * This is why mainnet showed a healthy source badge and zero proposals: the
+ * first version accepted ONLY DataString as [["proposal", {...}]]. Nodes also
+ * send a plain JSON object, a nested JSON *string*, or DataHex alone — all
+ * three are handled here.
+ */
+function proposalDataFrom(
+  entry: RpcGobjectEntry,
+): Record<string, unknown> | null {
+  const asProposal = (value: unknown): Record<string, unknown> | null => {
+    if (Array.isArray(value)) {
+      const first: unknown = value[0];
+      const inner: unknown = Array.isArray(first) ? first[1] : first;
+      if (typeof inner === 'string') {
+        try {
+          const parsed: unknown = JSON.parse(inner);
+          return parsed && typeof parsed === 'object'
+            ? (parsed as Record<string, unknown>)
+            : null;
+        } catch {
+          return null;
+        }
+      }
+      return inner && typeof inner === 'object'
+        ? (inner as Record<string, unknown>)
+        : null;
+    }
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : null;
+  };
+
+  // 1) already parsed
+  if (entry.DataObject && typeof entry.DataObject === 'object') {
+    const obj = entry.DataObject as Record<string, unknown>;
+    if (typeof obj.name === 'string') return obj;
+  }
+
+  // 2) JSON string
+  if (typeof entry.DataString === 'string' && entry.DataString.length > 0) {
+    try {
+      const fromString = asProposal(JSON.parse(entry.DataString));
+      if (fromString) return fromString;
+    } catch {
+      // fall through to DataHex
+    }
+  }
+
+  // 3) hex-encoded JSON
+  if (typeof entry.DataHex === 'string' && entry.DataHex.length > 0) {
+    try {
+      const bytes = entry.DataHex.match(/.{2}/g) ?? [];
+      const text = bytes
+        .map((b) => String.fromCharCode(parseInt(b, 16)))
+        .join('');
+      const fromHex = asProposal(JSON.parse(text));
+      if (fromHex) return fromHex;
+    } catch {
+      // give up on this entry
+    }
+  }
+
+  return null;
 }
 
 function epochToIso(epoch: number): string {
@@ -269,10 +356,22 @@ async function rpcPost(method: string, params: unknown[]): Promise<unknown> {
 }
 
 async function fetchMainnet(): Promise<MirrorResponse> {
-  const [gobjectsRaw, govInfoRaw] = await Promise.all([
+  const [gobjectsFirst, govInfoRaw] = await Promise.all([
     rpcPost('gobject', ['list', 'all', 'proposals']),
     rpcPost('getgovernanceinfo', []),
   ]);
+
+  // The 'all' filter is not universally accepted by public nodes; 'proposals'
+  // is the documented one. Retry once rather than showing an empty mainnet.
+  let gobjectsRaw = gobjectsFirst;
+  if (countGobjectEntries(gobjectsRaw) === 0) {
+    try {
+      const retry = await rpcPost('gobject', ['list', 'proposals']);
+      if (countGobjectEntries(retry) > 0) gobjectsRaw = retry;
+    } catch {
+      // keep the first response
+    }
+  }
 
   // gobject list returns a map keyed by hash
   if (typeof gobjectsRaw !== 'object' || gobjectsRaw === null) {
@@ -293,20 +392,8 @@ async function fetchMainnet(): Promise<MirrorResponse> {
     gobjectsRaw as Record<string, RpcGobjectEntry>,
   ).flatMap(([hash, entry]) => {
     try {
-      // Parse DataString (JSON-encoded proposal data)
-      const dataStr = entry.DataString;
-      if (!dataStr) return [];
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(dataStr);
-      } catch {
-        return [];
-      }
-
-      // DataString is an array: [["proposal", {...}]]
-      if (!Array.isArray(parsed) || !Array.isArray(parsed[0])) return [];
-      const inner = parsed[0][1] as Record<string, unknown> | undefined;
+      // Proposal data, whichever shape this node sends it in.
+      const inner = proposalDataFrom(entry);
       if (!inner || typeof inner.name !== 'string') return [];
 
       const yes = entry.YesCount ?? 0;
@@ -361,6 +448,20 @@ async function fetchMainnet(): Promise<MirrorResponse> {
       return [];
     }
   });
+
+  if (proposals.length === 0) {
+    const keys = Object.keys(gobjectsRaw as Record<string, unknown>).filter(
+      (k) => k !== 'summary',
+    );
+    const first = keys.length
+      ? (gobjectsRaw as Record<string, Record<string, unknown>>)[keys[0]]
+      : {};
+    // One line in the function logs says exactly which shape arrived.
+    console.warn('[mirror] mainnet answered but produced 0 proposals', {
+      entries: keys.length,
+      firstEntryFields: Object.keys(first ?? {}).slice(0, 30),
+    });
+  }
 
   const cycle: CycleInfo = {
     cycle: 'live',
