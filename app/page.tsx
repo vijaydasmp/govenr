@@ -16,6 +16,7 @@
 
 import Link from 'next/link';
 import { fetchProposals } from '@/lib/mirror/proposal-mirror';
+import { resolveNetwork } from '@/lib/platform/network';
 import ProposalCardTitle from '@/components/proposal-card-title';
 import VoteBar from '@/components/vote-bar';
 import StateBadge from '@/components/state-badge';
@@ -29,11 +30,18 @@ function totalVotesOf(p: { votes: { yes: number; no: number; abstain: number } }
   return p.votes.yes + p.votes.no + p.votes.abstain;
 }
 
-export default async function HubPage() {
-  const { proposals, cycle } = await fetchProposals();
+export default async function HubPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ network?: string }>;
+}) {
+  const network = resolveNetwork((await searchParams)?.network);
+  const { proposals, cycle } = await fetchProposals(network);
 
   const sourceBadgeStyle =
-    cycle.source === 'fixture'
+    cycle.source === 'unreachable'
+      ? { bg: 'var(--gold-dim)', color: 'var(--no)' }
+      : cycle.source === 'fixture'
       ? { bg: 'var(--gold-dim)', color: 'var(--gold)' }
       : cycle.network === 'testnet'
       ? { bg: 'var(--l1-dim)', color: 'var(--l1)' }
@@ -119,7 +127,9 @@ export default async function HubPage() {
 
       {proposals.length === 0 ? (
         <p className="font-mono text-sm" style={{ color: 'var(--text-dim)' }}>
-          No proposals found for this cycle.
+          {cycle.source === 'unreachable'
+            ? 'Could not reach mainnet — nothing to show. This is a read-only mirror; try again in a minute.'
+            : 'No proposals found for this cycle.'}
         </p>
       ) : (
         <>
@@ -264,10 +274,11 @@ export default async function HubPage() {
             className="border-t pt-6 font-mono text-xs leading-relaxed"
             style={{ borderColor: 'var(--border)', color: 'var(--text-dim)' }}
           >
-            Votes read from L1 (read-only) · refreshed every 60 s ·
-            proposal text lives on Dash Platform as documents owned by
-            their claimants · voting itself happens in Dash Core, never
-            in this browser.
+            Votes read from L1 (read-only) · refreshed every 60 s ·{' '}
+            {network === 'mainnet'
+              ? 'mainnet mode is a read-only mirror — proposal documents live on testnet for now'
+              : 'proposal text lives on Dash Platform as documents owned by their claimants'}{' '}
+            · voting itself happens in Dash Core, never in this browser.
           </footer>
         </>
       )}

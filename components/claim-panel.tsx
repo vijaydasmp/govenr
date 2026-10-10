@@ -20,6 +20,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '@/lib/platform/session-context';
+import ReadOnlyMainnetNotice from '@/components/readonly-mainnet-notice';
+import type { GovenrNetwork } from '@/lib/platform/network';
 import { createPlatformClient } from '@/lib/platform/client';
 import { verifyDashMessage } from '@/lib/platform/verify';
 import {
@@ -43,8 +45,10 @@ export default function ClaimPanel({
   proposalHash,
   paymentAddress,
   collateralAddress,
+  network = 'testnet',
 }: {
   proposalHash: string;
+  network?: GovenrNetwork;
   paymentAddress: string | null;
   collateralAddress: string | null;
 }) {
@@ -197,6 +201,11 @@ export default function ClaimPanel({
   // Claimed by the session identity: no box needed — the proposal content
   // panel below already tells the owner "You own this proposal" and offers
   // the editor. The claim evidence stays on-chain either way.
+  // Mainnet is read-only — claiming would be a promise this app cannot keep.
+  if (network === 'mainnet') {
+    return <ReadOnlyMainnetNotice what="Claiming is not available" />;
+  }
+
   if (claimState === 'claimed-by-you') {
     return null;
   }
@@ -248,25 +257,31 @@ export default function ClaimPanel({
         </p>
         {[
           paymentAddress
-            ? { key: 'command', addr: paymentAddress }
+            ? { label: 'payout address', addr: paymentAddress }
             : null,
           collateralAddress
-            ? { key: 'command', addr: collateralAddress }
+            ? { label: 'collateral (fee) address', addr: collateralAddress }
             : null,
         ]
-          .filter((b): b is { key: string; addr: string } => b !== null)
-          .map(({ key, addr }) => {
+          .filter((b): b is { label: string; addr: string } => b !== null)
+          .map(({ label, addr }) => {
             const cmd = 'signmessage "' + addr + '" "' + challenge + '"';
-            const copiedNow = copiedKey === key;
+            const copiedNow = copiedKey === label;
             return (
               <div
-                key={key}
+                key={label}
                 className="rounded border p-3 space-y-2"
                 style={{
                   backgroundColor: 'var(--surface-dim)',
                   borderColor: 'var(--border-strong)',
                 }}
               >
+                <p
+                  className="font-mono text-xs tracking-widest uppercase"
+                  style={{ color: 'var(--text-dim)' }}
+                >
+                  {label}
+                </p>
                 <p
                   className="font-mono text-xs break-all"
                   style={{ color: 'var(--text)' }}
@@ -275,7 +290,7 @@ export default function ClaimPanel({
                 </p>
                 <button
                   type="button"
-                  onClick={() => copyText(key, cmd)}
+                  onClick={() => copyText(label, cmd)}
                   className="font-mono text-xs focus-visible:outline-none focus-visible:ring-1"
                   style={{ color: 'var(--l1)' }}
                 >

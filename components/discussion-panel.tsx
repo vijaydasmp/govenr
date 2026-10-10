@@ -14,6 +14,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '@/lib/platform/session-context';
+import ReadOnlyMainnetNotice from '@/components/readonly-mainnet-notice';
+import type { GovenrNetwork } from '@/lib/platform/network';
 import { createPlatformClient } from '@/lib/platform/client';
 import { fetchComments, submitComment } from '@/lib/platform/comments';
 import { getStoredContractId } from '@/lib/platform/contract';
@@ -30,8 +32,10 @@ const inputStyle = {
 
 export default function DiscussionPanel({
   proposalHash,
+  network = 'testnet',
 }: {
   proposalHash: string;
+  network?: GovenrNetwork;
 }) {
   const { session, sdk, setSdk, authKeyWif } = useSession();
   const [comments, setComments] = useState<ReturnType<
@@ -115,6 +119,12 @@ export default function DiscussionPanel({
       setBusy(false);
     }
   }, [body, proposalHash, session.identityId, authKeyWif, sdkOrConnect]);
+
+  // Mainnet is read-only: comments are Platform documents, and they live on
+  // testnet. Say so rather than showing an empty thread.
+  if (network === 'mainnet') {
+    return <ReadOnlyMainnetNotice what="Discussion is not available" />;
+  }
 
   return (
     <div

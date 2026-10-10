@@ -14,6 +14,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from '@/lib/platform/session-context';
+import ReadOnlyMainnetNotice from '@/components/readonly-mainnet-notice';
+import type { GovenrNetwork } from '@/lib/platform/network';
 import { createPlatformClient } from '@/lib/platform/client';
 import {
   fetchProposalContent,
@@ -76,8 +78,10 @@ const EDITOR_TOOLS: Array<{
 
 export default function ProposalContentPanel({
   proposalHash,
+  network = 'testnet',
 }: {
   proposalHash: string;
+  network?: GovenrNetwork;
 }) {
   const { session, sdk, setSdk, authKeyWif } = useSession();
   const [content, setContent] = useState<ProposalContent | null>(null);
@@ -236,6 +240,11 @@ export default function ProposalContentPanel({
 
   // Nothing to render until we have looked (and no contract was ever
   // published on this device — no claims, no content possible).
+  // Mainnet is a read-only L1 mirror: Govenr's documents are not there.
+  if (network === 'mainnet') {
+    return <ReadOnlyMainnetNotice what="Proposal content is not available" />;
+  }
+
   if (!checked) return null;
 
   // ------------------------------------------------------------------

@@ -59,7 +59,10 @@ export type Proposal = {
 export type MirrorSource =
   | 'live insight (testnet)'
   | 'live node RPC (mainnet)'
-  | 'fixture';
+  | 'fixture'
+  // Mainnet could not be reached. Distinct from 'fixture' on purpose:
+  // mainnet mode must never serve testnet fixtures under a mainnet label.
+  | 'unreachable';
 
 export type CycleInfo = {
   cycle: string;       // e.g. "_04"

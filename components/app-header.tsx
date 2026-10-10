@@ -15,10 +15,15 @@
  *   error             → "Error" pill + retry
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from '@/lib/platform/session-context';
+import {
+  getActiveNetwork,
+  persistNetwork,
+  type GovenrNetwork,
+} from '@/lib/platform/network';
 import LoginPanel from '@/components/login-panel';
 
 const navLinks = [
@@ -36,6 +41,22 @@ export default function AppHeader() {
   const pathname = usePathname();
   const { session, logout } = useSession();
   const [showLogin, setShowLogin] = useState(false);
+  const router = useRouter();
+
+  // Network switch. The URL carries the choice (?network=mainnet) and
+  // localStorage remembers it; the server pages read the param, so the
+  // whole page (mirror + panels) follows the switch.
+  const [network, setNetwork] = useState<GovenrNetwork>('testnet');
+  useEffect(() => {
+    setNetwork(getActiveNetwork());
+  }, []);
+  const switchNetwork = (next: GovenrNetwork) => {
+    if (next === network) return;
+    persistNetwork(next);
+    setNetwork(next);
+    router.push(next === 'mainnet' ? `${pathname}?network=mainnet` : pathname);
+    router.refresh();
+  };
 
   // Auto-close login panel once session becomes ready
   const isReady = session.status === 'ready';
@@ -89,24 +110,36 @@ export default function AppHeader() {
             })}
           </ul>
 
+          {/* Network switch — testnet demo, or the read-only mainnet mirror */}
+          <div
+            className="flex items-center rounded-full border overflow-hidden"
+            role="group"
+            aria-label="Dash network"
+          >
+            {(['testnet', 'mainnet'] as const).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => switchNetwork(n)}
+                aria-pressed={network === n}
+                title={
+                  n === 'mainnet'
+                    ? 'Mainnet — read-only L1 mirror'
+                    : 'Testnet — the full demo'
+                }
+                className="font-mono text-[10px] tracking-widest uppercase px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+                style={{
+                  backgroundColor: network === n ? 'var(--gold)' : 'transparent',
+                  color: network === n ? 'var(--surface)' : 'var(--text-dim)',
+                }}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+
           {/* Session area — pushed right */}
           <div className="ml-auto flex items-center gap-3 flex-wrap">
-            {/* Create proposal link */}
-            <a
-              href="https://proposal.dash.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-mono text-xs rounded-full px-3 py-1 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
-              style={{
-                borderColor: 'var(--border-strong)',
-                color: 'var(--text-dim)',
-                backgroundColor: 'var(--surface)',
-              }}
-              aria-label="Create a new proposal on Dash Proposal System"
-            >
-              Create proposal <span aria-hidden="true">↗</span>
-            </a>
-
             {/* idle or locked → sign-in button */}
             {(session.status === 'idle' || session.status === 'locked') && (
               <button

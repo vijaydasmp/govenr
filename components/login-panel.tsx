@@ -23,6 +23,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from '@/lib/platform/session-context';
+import { getActiveNetwork } from '@/lib/platform/network';
 import { createPlatformClient, NETWORK } from '@/lib/platform/client';
 import { encryptMnemonic, decryptMnemonic } from '@/lib/platform/crypto';
 import {
@@ -816,6 +817,28 @@ export default function LoginPanel() {
     setGeneratedMnemonic(mn);
     setFlow('new-mnemonic');
   }, []);
+
+  // Mainnet is read-only in Govenr today: no sign-in, no claiming, no
+  // authoring. Saying so is better than offering flows that would write to
+  // the wrong network.
+  if (getActiveNetwork() === 'mainnet') {
+    return (
+      <div
+        className="rounded-lg border p-6 max-w-lg mx-auto space-y-3"
+        style={{
+          backgroundColor: 'var(--surface)',
+          borderColor: 'var(--border)',
+        }}
+      >
+        <SectionLabel>Read-only mainnet</SectionLabel>
+        <p className="font-mono text-xs" style={{ color: 'var(--text-dim)' }}>
+          Mainnet in Govenr is a read-only mirror: L1 governance objects and
+          live tallies. Signing in, claiming and authoring are testnet-only
+          for now.
+        </p>
+      </div>
+    );
+  }
 
   if (done) return null;
 

@@ -2,7 +2,8 @@
  * lib/mirror/proposal-mirror.ts
  *
  * SOURCE: live insight (testnet) | live node RPC (mainnet) | fixture
- * Swap point: change NETWORK env var — no UI code changes required.
+ * Swap point: the UI switch (?network=mainnet) or the NETWORK env var as a
+ * deployment-wide default. See lib/platform/network.ts.
  *
  * Server-side only. Called from app/api/mirror/proposals/route.ts.
  * Do NOT import this module from client components — use the mirror API
@@ -26,6 +27,11 @@ import type {
   MirrorResponse,
 } from '@/lib/types';
 import fixtureData from '@/fixtures/proposals.testnet.json';
+import {
+  getActiveNetwork,
+  resolveNetwork,
+  type GovenrNetwork,
+} from '@/lib/platform/network';
 
 // ---------------------------------------------------------------------------
 // ProposalMirror interface — unchanged across all mirror paths
@@ -57,26 +63,30 @@ export interface ProposalMirror {
 // ---------------------------------------------------------------------------
 
 type CacheEntry = { data: MirrorResponse; fetchedAt: number };
-let _cache: CacheEntry | null = null;
+// Keyed by network — flipping the switch must never serve the other
+// network's cached data.
+const _cache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 60_000;
 
 async function fetchFromRoute(): Promise<MirrorResponse> {
+  const network = getActiveNetwork();
   const now = Date.now();
-  if (_cache !== null && now - _cache.fetchedAt < CACHE_TTL_MS) {
-    return _cache.data;
+  const hit = _cache.get(network);
+  if (hit && now - hit.fetchedAt < CACHE_TTL_MS) {
+    return hit.data;
   }
-  const res = await fetch('/api/mirror/proposals', {
+  const res = await fetch(`/api/mirror/proposals?network=${network}`, {
     next: { revalidate: 60 },
   } as RequestInit);
   if (!res.ok) throw new Error(`Mirror fetch failed: HTTP ${res.status}`);
   const data = (await res.json()) as MirrorResponse;
-  _cache = { data, fetchedAt: now };
+  _cache.set(network, { data, fetchedAt: now });
   return data;
 }
 
 export const proposalMirror: ProposalMirror = {
   getCycle(): CycleInfo | null {
-    return _cache?.data.cycle ?? null;
+    return _cache.get(getActiveNetwork())?.data.cycle ?? null;
   },
   async getProposals(): Promise<Proposal[]> {
     return (await fetchFromRoute()).proposals;
@@ -414,16 +424,37 @@ function fixtureResponse(): MirrorResponse {
  * NETWORK=testnet  → Insight API (default)
  * NETWORK=mainnet  → Dash Core JSON-RPC
  */
-export async function fetchProposals(): Promise<MirrorResponse> {
-  const network = (process.env.NETWORK ?? 'testnet').toLowerCase();
-
+export async function fetchProposals(
+  network: GovenrNetwork = resolveNetwork(process.env.NETWORK),
+): Promise<MirrorResponse> {
   try {
     if (network === 'mainnet') {
       return await fetchMainnet();
     }
     return await fetchTestnet();
   } catch (err) {
-    console.warn(`[mirror] ${network} fetch failed — fixture fallback:`, err);
+    console.warn(`[mirror] ${network} fetch failed:`, err);
+    // Testnet falls back to fixtures. Mainnet must NOT: serving testnet
+    // fixtures under a mainnet label would state something false.
+    if (network === 'mainnet') return unreachableResponse();
     return fixtureResponse();
   }
+}
+
+/**
+ * Mainnet could not be reached. Empty, explicit, honestly labelled —
+ * never testnet fixtures wearing a mainnet badge.
+ */
+function unreachableResponse(): MirrorResponse {
+  return {
+    source: 'unreachable',
+    cycle: {
+      cycle: '—',
+      label: 'Mainnet unreachable',
+      network: 'mainnet',
+      lastUpdated: new Date().toISOString(),
+      source: 'unreachable',
+    },
+    proposals: [],
+  };
 }

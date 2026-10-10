@@ -16,6 +16,7 @@
  */
 
 import { assertClientSide, loadSdkModule } from '@/lib/platform/sdk-module';
+import { getActiveNetwork } from '@/lib/platform/network';
 import { assertSigningKey } from '@/lib/platform/identity';
 import type { DashSdk } from '@/lib/platform/types';
 import contractJson from '@/contracts/govenr-contract.json';
@@ -41,12 +42,27 @@ const KEY_CONTRACT_ID = 'govenr:platform:v3:contractid';
  *   localStorage.getItem('govenr:platform:v3:contractid')
  * or copy it from the Platform explorer's Data contracts table.
  */
+/**
+ * The Govenr contract on MAINNET, once one exists. Empty today: mainnet is
+ * a read-only L1 mirror and the document panels say so. Fill this in (or
+ * set NEXT_PUBLIC_GOVENR_MAINNET_CONTRACT_ID) when a mainnet contract is
+ * deployed and document reads should work there too.
+ */
+export const MAINNET_CONTRACT_ID =
+  process.env.NEXT_PUBLIC_GOVENR_MAINNET_CONTRACT_ID ?? '';
+
 export const KNOWN_DEMO_CONTRACT_ID =
   process.env.NEXT_PUBLIC_GOVENR_CONTRACT_ID ??
   '8EwaSu9QiTCcJdhkfAtuWhFGZPve7NhqJV2NmipRgcuJ';
 
 export function getStoredContractId(): string | null {
   assertClientSide('getStoredContractId');
+  // Mainnet mode is read-only: Govenr's documents live in the testnet
+  // contract, so there is nothing to read on mainnet yet. Returning null
+  // makes every document panel say so rather than query the wrong chain.
+  if (getActiveNetwork() === 'mainnet') {
+    return MAINNET_CONTRACT_ID || null;
+  }
   const stored = localStorage.getItem(KEY_CONTRACT_ID);
   const canonical = KNOWN_DEMO_CONTRACT_ID || null;
   if (canonical) {

@@ -8,6 +8,7 @@
 
 import { notFound } from 'next/navigation';
 import { fetchProposals } from '@/lib/mirror/proposal-mirror';
+import { resolveNetwork } from '@/lib/platform/network';
 import VoteBar from '@/components/vote-bar';
 import StateBadge from '@/components/state-badge';
 import Link from 'next/link';
@@ -18,19 +19,25 @@ import VoteCtaPanel from '@/components/vote-cta-panel';
 import DiscussionPanel from '@/components/discussion-panel';
 import ProposalOwnerByline from '@/components/proposal-owner-byline';
 import ProposalFacts from '@/components/proposal-facts';
+import DaoWars from '@/components/dao-wars';
 
 
 export const revalidate = 60;
 
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ network?: string }>;
 }
 
-export default async function ProposalDetailPage({ params }: Props) {
+export default async function ProposalDetailPage({
+  params,
+  searchParams,
+}: Props) {
   const { id } = await params;
   const decodedId = decodeURIComponent(id);
+  const network = resolveNetwork((await searchParams)?.network);
 
-  const { proposals } = await fetchProposals();
+  const { proposals } = await fetchProposals(network);
   const proposal = proposals.find(
     (p) => p.id === decodedId || p.hash === decodedId,
   );
@@ -78,6 +85,14 @@ export default async function ProposalDetailPage({ params }: Props) {
         <VoteBar votes={proposal.votes} className="max-w-md" />
       </div>
 
+      {/* DAO Wars — the tally, made physical. Read-only; L1 votes. */}
+      <DaoWars
+        yes={proposal.votes.yes}
+        no={proposal.votes.no}
+        abstain={proposal.votes.abstain}
+        neededYesToFund={proposal.neededYesToFund}
+      />
+
       {/* The case file — every number live from L1 */}
       <ProposalFacts proposal={proposal} />
 
@@ -90,16 +105,17 @@ export default async function ProposalDetailPage({ params }: Props) {
         proposalHash={proposal.hash}
         paymentAddress={proposal.paymentAddress}
         collateralAddress={proposal.collateralAddress}
+        network={network}
       />
 
       {/* S9c: proposal content — written by the claimant, stored on
           Platform, rendered for everyone. Discussion/Reviews/Votes come
           in a later step. */}
-      <ProposalContentPanel proposalHash={proposal.hash} />
+      <ProposalContentPanel proposalHash={proposal.hash} network={network} />
 
       {/* The discussion — comments as Platform documents owned by their
           authors. Anyone can read; signed-in identities can post. */}
-      <DiscussionPanel proposalHash={proposal.hash} />
+      <DiscussionPanel proposalHash={proposal.hash} network={network} />
     </div>
   );
 }
